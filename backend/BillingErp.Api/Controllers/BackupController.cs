@@ -16,38 +16,16 @@ namespace BillingErp.Api.Controllers;
 // Prisma/SQLite app, since the underlying schema and types (Float -> decimal, etc.) changed too.
 [ApiController]
 [Route("api/settings/backup")]
-public class BackupController(SqlConnectionFactory connectionFactory, AuditService audit) : ControllerBase
+public class BackupController(SqlConnectionFactory connectionFactory, AuditService audit, BackupService backups) : ControllerBase
 {
-    // Children-first order (safe delete order); reversed = parent-first (safe insert order).
-    private static readonly string[] TablesChildToParent =
-    [
-        "AuditLogs", "Notifications", "ProductionConsumptions", "ProductionOrders", "BOMItems", "Payrolls",
-        "Attendances", "Employees", "LeadActivities", "Leads", "Expenses", "ExpenseCategories", "StockAdjustments",
-        "StockTransactions", "Payments", "PurchaseReturnItems", "PurchaseReturns", "PurchaseItems", "Purchases",
-        "SaleReturnItems", "SaleReturns", "SaleItems", "Sales", "Suppliers", "Customers", "Products", "Units",
-        "Brands", "Categories", "Businesses", "Users", "RolePermissions", "Permissions", "Roles",
-    ];
+    private static readonly string[] TablesChildToParent = BackupService.TablesChildToParent;
 
     [HttpGet("export")]
     [RequirePermission("SETTINGS", "EXPORT")]
     public async Task<IActionResult> Export()
     {
         var session = HttpContext.GetSession()!;
-        using var connection = connectionFactory.Create();
-
-        var data = new Dictionary<string, JsonElement>();
-        foreach (var table in TablesChildToParent.Reverse()) // parent-first, matches original's export order
-        {
-            var parameters = new DynamicParameters();
-            parameters.Add("TableName", table);
-            parameters.Add("Json", dbType: DbType.String, direction: ParameterDirection.Output, size: -1);
-            await connection.ExecuteAsync("dbo.sp_Backup_ExportTable", parameters, commandType: CommandType.StoredProcedure);
-            var json = parameters.Get<string>("Json");
-            data[table] = JsonDocument.Parse(json).RootElement.Clone();
-        }
-
-        var payload = new { exportedAt = DateTime.UtcNow, version = 1, data };
-        var json2 = JsonSerializer.Serialize(payload, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var json2 = await backups.ExportJsonAsync();
 
         await audit.LogAsync(session.UserId, "EXPORT", "SETTINGS", recordLabel: "Backup Export");
 
@@ -96,5 +74,44 @@ public class BackupController(SqlConnectionFactory connectionFactory, AuditServi
         await audit.LogAsync(session.UserId, "RESTORE", "SETTINGS", recordLabel: "Backup Restore");
 
         return Ok(new { ok = true });
+    }
+
+    // ---- Automatic backups (folder on the server) ----
+
+    [HttpGet("auto")]
+    [RequirePermission("SETTINGS", "VIEW")]
+    public IActionResult AutoStatus() => Ok(new
+    {
+        enabled = backups.AutoEnabled,
+        directory = backups.Directory,
+        runAtHour = backups.RunAtHour,
+        keepCount = backups.KeepCount,
+        files = backups.ListBackups().Select(f => new { name = f.Name, sizeBytes = f.SizeBytes, createdAt = f.CreatedAt }),
+    });
+
+    [HttpPost("auto/run")]
+    [RequirePermission("SETTINGS", "EXPORT")]
+    public async Task<IActionResult> RunNow()
+    {
+        var session = HttpContext.GetSession()!;
+        try
+        {
+            var file = await backups.WriteBackupFileAsync();
+            await audit.LogAsync(session.UserId, "EXPORT", "SETTINGS", recordLabel: $"Backup saved to folder: {file.Name}");
+            return Ok(new { name = file.Name, sizeBytes = file.SizeBytes, createdAt = file.CreatedAt });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return StatusCode(500, new { error = $"Could not write to the backup folder: {ex.Message}" });
+        }
+    }
+
+    [HttpGet("auto/files/{name}")]
+    [RequirePermission("SETTINGS", "EXPORT")]
+    public IActionResult DownloadFile(string name)
+    {
+        var path = backups.ResolveBackupPath(name);
+        if (path is null) return NotFound(new { error = "Backup not found" });
+        return PhysicalFile(path, "application/json", name);
     }
 }

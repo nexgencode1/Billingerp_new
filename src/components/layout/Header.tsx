@@ -2,7 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Search, Bell, ChevronDown, LogOut, User as UserIcon, HelpCircle } from "lucide-react";
+import { Search, ChevronDown, LogOut, User as UserIcon, HelpCircle } from "lucide-react";
+import { AlertsBell } from "@/components/layout/AlertsBell";
+import { OfflineIndicator } from "@/components/offline/OfflineManager";
+import { clearOfflineCaches } from "@/lib/offlineQueue";
 import type { SessionPayload } from "@/types/auth";
 import { useTourStore } from "@/lib/tour-store";
 import { ProfileModal } from "@/components/layout/ProfileModal";
@@ -15,6 +18,7 @@ export function Header({ session }: { session: SessionPayload }) {
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    clearOfflineCaches(); // cached pages/data belong to this user — don't leave them for the next one
     router.push("/login");
     router.refresh();
   }
@@ -30,9 +34,8 @@ export function Header({ session }: { session: SessionPayload }) {
       </div>
 
       <div className="flex items-center gap-3">
-        <button className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100">
-          <Bell className="h-5 w-5" />
-        </button>
+        <OfflineIndicator />
+        <AlertsBell />
 
         <button
           onClick={startTour}

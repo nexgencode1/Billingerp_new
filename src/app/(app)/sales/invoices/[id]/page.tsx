@@ -22,7 +22,7 @@ interface SaleDetail {
   paymentMethod: string;
   status: string;
   cancelReason?: string | null;
-  customer: { name: string; mobile: string; address: string | null; gstin: string | null } | null;
+  customer: { name: string; mobile: string; email: string | null; address: string | null; gstin: string | null } | null;
   items: { productName: string; quantity: number; rate: number; gstRate: number; total: number }[];
 }
 
@@ -33,6 +33,7 @@ interface BusinessProfile {
   email: string | null;
   gstin: string | null;
   termsText: string | null;
+  upiId: string | null;
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {

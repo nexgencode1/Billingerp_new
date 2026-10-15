@@ -6,6 +6,8 @@ import { MobileNav } from "@/components/layout/MobileNav";
 import { ToastContainer } from "@/components/common/Toast";
 import { TourOverlay } from "@/components/tour/TourOverlay";
 import { TourAutoStart } from "@/components/tour/TourAutoStart";
+import { OfflineManager } from "@/components/offline/OfflineManager";
+import { PermissionsProvider } from "@/lib/permissions-context";
 import type { SessionPayload } from "@/types/auth";
 
 interface MeResponse {
@@ -19,6 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { session, permissions } = me;
 
   return (
+    <PermissionsProvider permissions={permissions}>
     <div className="flex h-screen overflow-hidden">
       <Sidebar permissions={permissions} />
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -29,6 +32,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <ToastContainer />
       <TourOverlay />
       <TourAutoStart />
+      <OfflineManager />
     </div>
+    </PermissionsProvider>
   );
 }

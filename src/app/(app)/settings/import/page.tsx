@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ExcelImportPanel } from "@/components/import/ExcelImportPanel";
+import { HsnMasterTools } from "@/components/import/HsnMasterTools";
 
 export const metadata: Metadata = { title: "Import Data" };
 
@@ -54,6 +55,8 @@ export default function ImportDataPage() {
         requiredColumns={["SKU", "OpeningStock"]}
         importEndpoint="/api/import/opening-stock"
       />
+
+      <HsnMasterTools />
     </div>
   );
 }

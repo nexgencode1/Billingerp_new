@@ -43,3 +43,6 @@ next-env.d.ts
 # database
 /prisma/dev.db
 /prisma/dev.db-journal
+
+# automatic database backups (contain all business data + password hashes) — never commit
+backend/BillingErp.Api/backups/

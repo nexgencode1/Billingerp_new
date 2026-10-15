@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Billing  Software\\backend\\BillingErp.Api\\BillingErp.Api.csproj": {}
+    "D:\\LogicMitra Project\\Billing  Software\\backend\\BillingErp.Api\\BillingErp.Api.csproj": {}
   },
   "projects": {
-    "D:\\Billing  Software\\backend\\BillingErp.Api\\BillingErp.Api.csproj": {
+    "D:\\LogicMitra Project\\Billing  Software\\backend\\BillingErp.Api\\BillingErp.Api.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Billing  Software\\backend\\BillingErp.Api\\BillingErp.Api.csproj",
+        "projectUniqueName": "D:\\LogicMitra Project\\Billing  Software\\backend\\BillingErp.Api\\BillingErp.Api.csproj",
         "projectName": "BillingErp.Api",
-        "projectPath": "D:\\Billing  Software\\backend\\BillingErp.Api\\BillingErp.Api.csproj",
+        "projectPath": "D:\\LogicMitra Project\\Billing  Software\\backend\\BillingErp.Api\\BillingErp.Api.csproj",
         "packagesPath": "C:\\Users\\DELL\\.nuget\\packages\\",
-        "outputPath": "D:\\Billing  Software\\backend\\BillingErp.Api\\obj\\",
+        "outputPath": "D:\\LogicMitra Project\\Billing  Software\\backend\\BillingErp.Api\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

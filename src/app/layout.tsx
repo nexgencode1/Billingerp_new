@@ -18,6 +18,8 @@ export const metadata: Metadata = {
     template: "%s · Billing ERP",
   },
   description: "Billing, Inventory, Accounting, CRM, HR & Manufacturing — all in one.",
+  manifest: "/manifest.webmanifest",
+  icons: { icon: "/favicon.ico", apple: "/icon.svg" },
   // This app is private and sits behind a login — it should never be crawled
   // or indexed by search engines. See also src/app/robots.ts.
   robots: {
@@ -33,7 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="m-0 min-h-screen w-full bg-[#020d1f] text-white">{children}</body>
+      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">{children}</body>
     </html>
   );
 }

@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { amountInWords } from "@/lib/gst";
 
 interface InvoiceItem {
@@ -30,9 +30,26 @@ interface InvoicePdfInput {
   sgst: number;
   igst: number;
   grandTotal: number;
-  paidAmount: number;
-  dueAmount: number;
-  paymentStatus: string;
+  paidAmount?: number;
+  dueAmount?: number;
+  paymentStatus?: string;
+  /** Heading printed above the number line, e.g. "TAX INVOICE", "ESTIMATE / QUOTATION". */
+  title?: string;
+  /** Label for the number, e.g. "Estimate No" (default "Invoice No"). */
+  numberLabel?: string;
+  /** Extra "Label: value" lines under the number/date (e.g. Valid Until). */
+  metaLines?: string[];
+  notes?: string | null;
+  /** Hide paid/due/payment status (estimates, orders, challans). */
+  hidePayment?: boolean;
+  /** Optional PNG data URL of a UPI QR code + caption, drawn bottom-left. */
+  upiQr?: { dataUrl: string; caption: string } | null;
+}
+
+// jsPDF's built-in fonts have no ₹ glyph, so amounts are printed as "Rs. 1,234.00".
+function rs(value: number): string {
+  const sign = value < 0 ? "-" : "";
+  return `${sign}Rs. ${Math.abs(value).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function generateInvoicePdf(data: InvoicePdfInput) {
@@ -66,11 +83,24 @@ export function generateInvoicePdf(data: InvoicePdfInput) {
   doc.line(14, y, pageWidth - 14, y);
   y += 6;
 
+  if (data.title) {
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(data.title, pageWidth / 2, y, { align: "center" });
+    y += 7;
+  }
+
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text(`Invoice No: ${data.invoiceNumber}`, 14, y);
+  doc.text(`${data.numberLabel ?? "Invoice No"}: ${data.invoiceNumber}`, 14, y);
   doc.text(`Date: ${formatDate(data.invoiceDate)}`, pageWidth - 14, y, { align: "right" });
-  y += 7;
+  y += 5;
+  doc.setFont("helvetica", "normal");
+  for (const line of data.metaLines ?? []) {
+    doc.text(line, pageWidth - 14, y, { align: "right" });
+    y += 5;
+  }
+  y += 2;
 
   doc.setFont("helvetica", "bold");
   doc.text("Bill To:", 14, y);
@@ -102,9 +132,9 @@ export function generateInvoicePdf(data: InvoicePdfInput) {
     body: data.items.map((i) => [
       i.productName,
       String(i.quantity),
-      formatCurrency(i.rate),
+      rs(i.rate),
       `${i.gstRate}%`,
-      formatCurrency(i.total),
+      rs(i.total),
     ]),
     styles: { fontSize: 9 },
     headStyles: { fillColor: [37, 99, 235] },
@@ -118,7 +148,7 @@ export function generateInvoicePdf(data: InvoicePdfInput) {
   function totalRow(label: string, value: number, bold = false) {
     doc.setFont("helvetica", bold ? "bold" : "normal");
     doc.text(label, totalsX, finalY);
-    doc.text(formatCurrency(value), pageWidth - 14, finalY, { align: "right" });
+    doc.text(rs(value), pageWidth - 14, finalY, { align: "right" });
     finalY += 5;
   }
 
@@ -129,8 +159,10 @@ export function generateInvoicePdf(data: InvoicePdfInput) {
   if (data.sgst) totalRow("SGST", data.sgst);
   if (data.igst) totalRow("IGST", data.igst);
   totalRow("Grand Total", data.grandTotal, true);
-  totalRow("Paid", data.paidAmount);
-  totalRow("Due", data.dueAmount, true);
+  if (!data.hidePayment) {
+    totalRow("Paid", data.paidAmount ?? 0);
+    totalRow("Due", data.dueAmount ?? 0, true);
+  }
 
   finalY += 3;
   doc.setFont("helvetica", "italic");
@@ -138,9 +170,18 @@ export function generateInvoicePdf(data: InvoicePdfInput) {
   doc.text(`Amount in Words: ${amountInWords(data.grandTotal)}`, 14, finalY);
   finalY += 6;
 
-  doc.setFont("helvetica", "bold");
-  doc.text(`Payment Status: ${data.paymentStatus}`, 14, finalY);
-  finalY += 8;
+  if (!data.hidePayment && data.paymentStatus) {
+    doc.setFont("helvetica", "bold");
+    doc.text(`Payment Status: ${data.paymentStatus}`, 14, finalY);
+    finalY += 8;
+  }
+
+  if (data.notes) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.text(`Notes: ${data.notes}`, 14, finalY, { maxWidth: pageWidth - 28 });
+    finalY += 8;
+  }
 
   if (data.business?.termsText) {
     doc.setFont("helvetica", "normal");
@@ -148,6 +189,15 @@ export function generateInvoicePdf(data: InvoicePdfInput) {
     doc.text("Terms & Conditions:", 14, finalY);
     finalY += 4;
     doc.text(data.business.termsText, 14, finalY, { maxWidth: pageWidth - 28 });
+  }
+
+  if (data.upiQr) {
+    const size = 32;
+    const top = 280 - size - 6;
+    doc.addImage(data.upiQr.dataUrl, "PNG", 14, top, size, size);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.text(data.upiQr.caption, 14, top + size + 4);
   }
 
   doc.setFont("helvetica", "normal");

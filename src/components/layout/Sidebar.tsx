@@ -75,7 +75,11 @@ export function Sidebar({ permissions }: { permissions: Record<string, string[]>
               {isOpen && (
                 <div className="ml-6 flex flex-col gap-0.5 border-l border-slate-200 pl-3 py-1">
                   {group.children.map((child) => {
-                    const active = pathname.startsWith(child.href);
+                    // Longest matching href wins, so "/reports" isn't also lit on "/reports/sales".
+                    const bestMatch = group.children!
+                      .filter((c) => pathname === c.href || pathname.startsWith(`${c.href}/`))
+                      .sort((a, b) => b.href.length - a.href.length)[0];
+                    const active = bestMatch?.href === child.href;
                     return (
                       <Link
                         key={child.href}

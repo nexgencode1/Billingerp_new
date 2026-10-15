@@ -11,6 +11,7 @@ import {
   Factory,
   Wallet,
   CreditCard,
+  Landmark,
   BarChart3,
   ShieldCheck,
   Settings,
@@ -41,7 +42,12 @@ export const NAV_GROUPS: NavGroup[] = [
     children: [
       { label: "New Invoice", href: "/sales/new" },
       { label: "Sales History", href: "/sales/invoices" },
-      { label: "Sales Return", href: "/sales/returns" },
+      { label: "Estimates / Quotations", href: "/sales/estimates" },
+      { label: "Sale Orders", href: "/sales/orders" },
+      { label: "Delivery Challans", href: "/sales/challans" },
+      { label: "Recurring Invoices", href: "/sales/recurring" },
+      { label: "Offline Invoices", href: "/sales/offline" },
+      { label: "Credit Note (Sale Return)", href: "/sales/returns" },
     ],
   },
   {
@@ -52,7 +58,7 @@ export const NAV_GROUPS: NavGroup[] = [
     children: [
       { label: "New Purchase", href: "/purchase/new" },
       { label: "Purchase History", href: "/purchase/invoices" },
-      { label: "Purchase Return", href: "/purchase/returns" },
+      { label: "Debit Note (Purchase Return)", href: "/purchase/returns" },
     ],
   },
   {
@@ -64,6 +70,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Product List", href: "/products" },
       { label: "Categories", href: "/products/categories" },
       { label: "Units", href: "/products/units" },
+      { label: "Barcode Labels", href: "/products/labels" },
     ],
   },
   {
@@ -101,13 +108,24 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   { label: "Expenses", icon: Wallet, module: "EXPENSES", href: "/expenses" },
-  { label: "Payments", icon: CreditCard, module: "PAYMENTS", href: "/payments" },
+  {
+    label: "Payments",
+    icon: CreditCard,
+    module: "PAYMENTS",
+    children: [
+      { label: "Receive / Pay", href: "/payments" },
+      { label: "Payment Reminders", href: "/payments/reminders" },
+    ],
+  },
+  { label: "Cash & Bank", icon: Landmark, module: "PAYMENTS", href: "/cash-bank", tourId: "nav-cash-bank" },
   {
     label: "Reports",
     icon: BarChart3,
     module: "REPORTS",
     tourId: "nav-reports",
     children: [
+      { label: "All Reports", href: "/reports" },
+      { label: "Ask Your Business (AI)", href: "/reports/ask" },
       { label: "Sales Report", href: "/reports/sales" },
       { label: "Purchase Report", href: "/reports/purchase" },
       { label: "Profit Report", href: "/reports/profit" },
@@ -117,6 +135,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Supplier Report", href: "/reports/supplier" },
       { label: "Payment Report", href: "/reports/payment" },
       { label: "Expense Report", href: "/reports/expense" },
+      { label: "GSTR-1 / GSTR-3B", href: "/reports/gstr" },
+      { label: "Day Book", href: "/reports/day-book" },
+      { label: "Balance Sheet", href: "/reports/balance-sheet" },
     ],
   },
   {
@@ -138,6 +159,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Number Series", href: "/settings/number-series" },
       { label: "Import Data", href: "/settings/import" },
       { label: "Backup", href: "/settings/backup" },
+      { label: "Audit Log", href: "/settings/audit-log" },
     ],
   },
 ];

@@ -14,7 +14,7 @@ namespace BillingErp.Api.Controllers;
 // which the original's POST response omitted) — harmless extra fields, not a breaking change.
 [ApiController]
 [Route("api/sales")]
-public class SalesController(SqlConnectionFactory connectionFactory, AuditService audit) : ControllerBase
+public class SalesController(SqlConnectionFactory connectionFactory, AuditService audit, SaleService sales) : ControllerBase
 {
     private record SaleRow(
         int Id, string InvoiceNumber, DateTime InvoiceDate, int? CustomerId,
@@ -155,92 +155,14 @@ public class SalesController(SqlConnectionFactory connectionFactory, AuditServic
     [RequirePermission("SALES", "CREATE")]
     public async Task<IActionResult> Create([FromBody] SaleCreateRequest? body)
     {
-        if (body is null || body.Items is null || body.Items.Count == 0)
-            return BadRequest(new { error = "Add at least one product" });
-        foreach (var item in body.Items)
-        {
-            if (item.Quantity <= 0) return BadRequest(new { error = "Quantity must be greater than 0" });
-            if (item.Rate < 0) return BadRequest(new { error = "Invalid input" });
-        }
-
         var session = HttpContext.GetSession()!;
+        var outcome = await sales.CreateAsync(body, session.UserId);
+        if (!outcome.Ok)
+            return outcome.ErrorStatus == 404 ? NotFound(new { error = outcome.Error }) : BadRequest(new { error = outcome.Error });
+
+        var saleId = outcome.SaleId!.Value;
+        var invoiceNumber = outcome.InvoiceNumber!;
         using var connection = connectionFactory.Create();
-
-        var ctxParams = new DynamicParameters();
-        ctxParams.Add("CustomerId", body.CustomerId);
-        ctxParams.Add("BusinessState", dbType: DbType.String, direction: ParameterDirection.Output, size: 100);
-        ctxParams.Add("CustomerState", dbType: DbType.String, direction: ParameterDirection.Output, size: 100);
-        ctxParams.Add("CustomerExists", dbType: DbType.Boolean, direction: ParameterDirection.Output);
-        await connection.ExecuteAsync("dbo.sp_Sale_PrepareContext", ctxParams, commandType: CommandType.StoredProcedure);
-
-        if (body.CustomerId is not null && !ctxParams.Get<bool>("CustomerExists"))
-            return NotFound(new { error = "Customer not found" });
-
-        var businessState = ctxParams.Get<string?>("BusinessState");
-        var customerState = ctxParams.Get<string?>("CustomerState");
-        var isInterstate = !string.IsNullOrEmpty(businessState) && !string.IsNullOrEmpty(customerState)
-            && !string.Equals(businessState, customerState, StringComparison.OrdinalIgnoreCase);
-
-        // Stock availability check (mirrors the original's pre-transaction loop)
-        foreach (var item in body.Items)
-        {
-            var balance = await connection.ExecuteScalarAsync<decimal>(
-                "dbo.sp_Stock_GetBalance", new { ProductId = item.ProductId }, commandType: CommandType.StoredProcedure);
-            if (balance < item.Quantity)
-            {
-                var product = await connection.QuerySingleOrDefaultAsync<dynamic>(
-                    "dbo.sp_Product_GetById", new { ProductId = item.ProductId }, commandType: CommandType.StoredProcedure);
-                string name = product is not null ? (string)product.Name : item.ProductName;
-                return BadRequest(new { error = $"Insufficient stock for \"{name}\". Available: {balance}" });
-            }
-        }
-
-        var lineItems = body.Items.Select(i => new LineItemInput(i.Quantity, i.Rate, i.Discount ?? 0, i.GstRate ?? 0)).ToList();
-        var totals = GstService.ComputeInvoiceTotals(lineItems, isInterstate);
-
-        var payments = body.Payments ?? new List<PaymentInput>();
-        var paidAmount = payments.Sum(p => p.Amount);
-        var dueAmount = Math.Max(0, totals.GrandTotal - paidAmount);
-        var paymentStatus = paidAmount <= 0 ? "DUE" : dueAmount <= 0 ? "PAID" : "PARTIAL";
-        var paymentMethod = payments.Count == 0 ? "CREDIT" : payments.Count == 1 ? payments[0].Method : "SPLIT";
-
-        var itemsJson = JsonSerializer.Serialize(body.Items.Select((i, idx) => new
-        {
-            productId = i.ProductId,
-            productName = i.ProductName,
-            quantity = totals.Items[idx].Quantity,
-            rate = totals.Items[idx].Rate,
-            discount = totals.Items[idx].Discount,
-            gstRate = totals.Items[idx].GstRate,
-            taxableAmount = totals.Items[idx].TaxableAmount,
-            gstAmount = totals.Items[idx].GstAmount,
-            total = totals.Items[idx].Total,
-        }));
-        var paymentsJson = JsonSerializer.Serialize(payments.Select(p => new { method = p.Method, amount = p.Amount }));
-
-        var parameters = new DynamicParameters();
-        parameters.Add("InvoiceDate", body.InvoiceDate);
-        parameters.Add("CustomerId", body.CustomerId);
-        parameters.Add("Subtotal", totals.Subtotal);
-        parameters.Add("Discount", totals.Discount);
-        parameters.Add("TaxableAmount", totals.TaxableAmount);
-        parameters.Add("Cgst", totals.Cgst);
-        parameters.Add("Sgst", totals.Sgst);
-        parameters.Add("Igst", totals.Igst);
-        parameters.Add("GrandTotal", totals.GrandTotal);
-        parameters.Add("PaidAmount", paidAmount);
-        parameters.Add("DueAmount", dueAmount);
-        parameters.Add("PaymentStatus", paymentStatus);
-        parameters.Add("PaymentMethod", paymentMethod);
-        parameters.Add("ItemsJson", itemsJson);
-        parameters.Add("PaymentsJson", paymentsJson);
-        parameters.Add("CreatedById", session.UserId);
-        parameters.Add("SaleId", dbType: DbType.Int32, direction: ParameterDirection.Output);
-        parameters.Add("InvoiceNumber", dbType: DbType.String, direction: ParameterDirection.Output, size: 50);
-
-        await connection.ExecuteAsync("dbo.sp_Sale_Create", parameters, commandType: CommandType.StoredProcedure);
-        var saleId = parameters.Get<int>("SaleId");
-        var invoiceNumber = parameters.Get<string>("InvoiceNumber");
 
         await audit.LogAsync(session.UserId, "CREATE", "SALES", saleId, invoiceNumber);
 

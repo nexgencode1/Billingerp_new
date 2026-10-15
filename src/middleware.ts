@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/jwt";
+import { PORTAL_COOKIE, verifyPortalToken } from "@/lib/portal-jwt";
 
 const PUBLIC_PATHS = ["/", "/login", "/api/auth/login", "/robots.txt"];
 
@@ -7,6 +8,22 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (PUBLIC_PATHS.some((p) => pathname === p) || pathname.startsWith("/_next")) {
+    return NextResponse.next();
+  }
+
+  // Offline support files must load without a session (the service worker fetches them itself).
+  if (pathname === "/sw.js" || pathname === "/offline.html" || pathname === "/manifest.webmanifest" || pathname === "/icon.svg") {
+    return NextResponse.next();
+  }
+
+  // Customer portal: its own cookie and its own login page. Portal API calls are authorised by
+  // the backend ([RequirePortalSession]); staff sessions never grant portal pages and vice versa.
+  if (pathname.startsWith("/api/portal")) return NextResponse.next();
+  if (pathname === "/portal/login") return NextResponse.next();
+  if (pathname === "/portal" || pathname.startsWith("/portal/")) {
+    const portalToken = req.cookies.get(PORTAL_COOKIE)?.value;
+    const portal = portalToken ? await verifyPortalToken(portalToken) : null;
+    if (!portal) return NextResponse.redirect(new URL("/portal/login", req.url));
     return NextResponse.next();
   }
 

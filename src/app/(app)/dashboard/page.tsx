@@ -27,6 +27,7 @@ import {
   Legend,
 } from "recharts";
 import { KpiCard } from "@/components/dashboard/KpiCard";
+import { BusinessInsights } from "@/components/dashboard/BusinessInsights";
 import { Button } from "@/components/common/Button";
 import { Select } from "@/components/common/Select";
 import { Skeleton } from "@/components/common/Skeleton";
@@ -181,6 +182,8 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      <BusinessInsights />
     </div>
   );
 }

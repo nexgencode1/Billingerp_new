@@ -1,6 +1,7 @@
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { amountInWords } from "@/lib/gst";
 import { Badge } from "@/components/common/Badge";
+import { UpiQr } from "@/components/invoice/UpiQr";
 
 interface InvoiceDocumentProps {
   sale: {
@@ -28,6 +29,7 @@ interface InvoiceDocumentProps {
     email: string | null;
     gstin: string | null;
     termsText: string | null;
+    upiId?: string | null;
   } | null;
 }
 
@@ -147,6 +149,12 @@ export function InvoiceDocument({ sale, business }: InvoiceDocumentProps) {
       <p className="mt-3 text-sm font-semibold">
         Payment Status: <Badge tone={sale.paymentStatus === "PAID" ? "green" : sale.paymentStatus === "PARTIAL" ? "yellow" : "red"}>{sale.paymentStatus}</Badge>
       </p>
+
+      {business?.upiId && sale.status !== "CANCELLED" && sale.dueAmount > 0 && (
+        <div className="mt-4" data-tour="invoice-upi-qr">
+          <UpiQr vpa={business.upiId} payeeName={business.name} amount={sale.dueAmount} note={`Invoice ${sale.invoiceNumber}`} />
+        </div>
+      )}
 
       {sale.status === "CANCELLED" && sale.cancelReason && (
         <p className="mt-2 text-sm text-red-600">Cancellation Reason: {sale.cancelReason}</p>

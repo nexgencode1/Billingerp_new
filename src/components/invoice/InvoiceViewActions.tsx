@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Printer, Download, Ban } from "lucide-react";
+import Link from "next/link";
+import { Printer, Download, Ban, Copy } from "lucide-react";
 import { Button } from "@/components/common/Button";
 import { Modal } from "@/components/common/Modal";
 import { Input } from "@/components/common/Input";
 import { generateInvoicePdf } from "@/lib/invoice-pdf";
+import { ShareButtons } from "@/components/invoice/ShareButtons";
+import { upiQrDataUrl } from "@/components/invoice/UpiQr";
+import { formatDate } from "@/lib/utils";
 import { toast } from "@/lib/toast-store";
 
 interface InvoiceViewActionsProps {
@@ -24,7 +28,7 @@ interface InvoiceViewActionsProps {
     dueAmount: number;
     paymentStatus: string;
     status: string;
-    customer: { name: string; mobile: string; address: string | null; gstin: string | null } | null;
+    customer: { name: string; mobile: string; email?: string | null; address: string | null; gstin: string | null } | null;
     items: { productName: string; quantity: number; rate: number; gstRate: number; total: number }[];
   };
   business: {
@@ -34,6 +38,7 @@ interface InvoiceViewActionsProps {
     email: string | null;
     gstin: string | null;
     termsText: string | null;
+    upiId?: string | null;
   } | null;
 }
 
@@ -43,8 +48,17 @@ export function InvoiceViewActions({ sale, business }: InvoiceViewActionsProps) 
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function handleDownloadPdf() {
+  async function handleDownloadPdf() {
+    const showQr = Boolean(business?.upiId) && sale.status !== "CANCELLED" && sale.dueAmount > 0;
+    const upiQr = showQr
+      ? {
+          dataUrl: await upiQrDataUrl(business!.upiId!, business!.name, sale.dueAmount, `Invoice ${sale.invoiceNumber}`),
+          caption: `Scan to pay via UPI: ${business!.upiId}`,
+        }
+      : null;
     generateInvoicePdf({
+      title: "TAX INVOICE",
+      upiQr,
       invoiceNumber: sale.invoiceNumber,
       invoiceDate: sale.invoiceDate,
       business,
@@ -92,6 +106,25 @@ export function InvoiceViewActions({ sale, business }: InvoiceViewActionsProps) 
       <Button variant="outline" size="sm" onClick={handleDownloadPdf}>
         <Download className="h-4 w-4" /> Download PDF
       </Button>
+      <ShareButtons
+        mobile={sale.customer?.mobile}
+        email={sale.customer?.email}
+        doc={{
+          label: "Invoice",
+          number: sale.invoiceNumber,
+          date: formatDate(sale.invoiceDate),
+          customerName: sale.customer?.name ?? null,
+          grandTotal: sale.grandTotal,
+          dueAmount: sale.dueAmount,
+          businessName: business?.name ?? "",
+          upiId: business?.upiId,
+        }}
+      />
+      <Link href={`/sales/new?duplicate=${sale.id}`} data-tour="duplicate-invoice">
+        <Button variant="outline" size="sm">
+          <Copy className="h-4 w-4" /> Duplicate
+        </Button>
+      </Link>
       {sale.status !== "CANCELLED" && (
         <Button variant="danger" size="sm" onClick={() => setCancelOpen(true)}>
           <Ban className="h-4 w-4" /> Cancel Invoice

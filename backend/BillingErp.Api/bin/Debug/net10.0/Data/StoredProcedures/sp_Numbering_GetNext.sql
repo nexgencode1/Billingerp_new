@@ -53,6 +53,21 @@ BEGIN
         UPDATE dbo.Businesses SET ProductionCounter = ProductionCounter + 1 WHERE Id = @BusinessId;
         SELECT @NextCount = ProductionCounter, @Prefix = ProductionPrefix FROM dbo.Businesses WHERE Id = @BusinessId;
     END
+    ELSE IF @Kind = 'ESTIMATE'
+    BEGIN
+        UPDATE dbo.Businesses SET EstimateCounter = EstimateCounter + 1 WHERE Id = @BusinessId;
+        SELECT @NextCount = EstimateCounter, @Prefix = EstimatePrefix FROM dbo.Businesses WHERE Id = @BusinessId;
+    END
+    ELSE IF @Kind = 'SALE_ORDER'
+    BEGIN
+        UPDATE dbo.Businesses SET SaleOrderCounter = SaleOrderCounter + 1 WHERE Id = @BusinessId;
+        SELECT @NextCount = SaleOrderCounter, @Prefix = SaleOrderPrefix FROM dbo.Businesses WHERE Id = @BusinessId;
+    END
+    ELSE IF @Kind = 'DELIVERY_CHALLAN'
+    BEGIN
+        UPDATE dbo.Businesses SET ChallanCounter = ChallanCounter + 1 WHERE Id = @BusinessId;
+        SELECT @NextCount = ChallanCounter, @Prefix = ChallanPrefix FROM dbo.Businesses WHERE Id = @BusinessId;
+    END
     ELSE
     BEGIN
         ROLLBACK TRAN;

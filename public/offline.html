@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Offline — Billing ERP</title>
+    <style>
+      :root { color-scheme: light; }
+      body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f1f5f9; color: #0f172a;
+             display: flex; min-height: 100vh; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+      .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; max-width: 420px; text-align: center; }
+      h1 { font-size: 18px; margin: 0 0 8px; }
+      p { font-size: 14px; color: #475569; line-height: 1.5; margin: 0 0 12px; }
+      a, button { display: inline-block; margin: 4px; padding: 8px 14px; border-radius: 6px; font-size: 14px; text-decoration: none; cursor: pointer; }
+      .primary { background: #2563eb; color: #fff; border: 0; }
+      .secondary { background: #fff; color: #334155; border: 1px solid #cbd5e1; }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>You're offline</h1>
+      <p>This page hasn't been opened on this device before, so it isn't available offline.</p>
+      <p>You can still create invoices: open <b>New Invoice</b> (once visited online) — bills made offline are saved on this device and sync automatically when the connection returns.</p>
+      <a class="primary" href="/sales/new">New Invoice</a>
+      <button class="secondary" onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

@@ -10,9 +10,12 @@ const SERIES = [
   { prefixKey: "purchasePrefix", counterKey: "purchaseCounter", label: "Purchase" },
   { prefixKey: "paymentPrefix", counterKey: "paymentCounter", label: "Payment" },
   { prefixKey: "expensePrefix", counterKey: "expenseCounter", label: "Expense" },
-  { prefixKey: "saleReturnPrefix", counterKey: "saleReturnCounter", label: "Sales Return" },
-  { prefixKey: "purchaseReturnPrefix", counterKey: "purchaseReturnCounter", label: "Purchase Return" },
+  { prefixKey: "saleReturnPrefix", counterKey: "saleReturnCounter", label: "Credit Note (Sales Return)" },
+  { prefixKey: "purchaseReturnPrefix", counterKey: "purchaseReturnCounter", label: "Debit Note (Purchase Return)" },
   { prefixKey: "productionPrefix", counterKey: "productionCounter", label: "Production Order" },
+  { prefixKey: "estimatePrefix", counterKey: "estimateCounter", label: "Estimate / Quotation" },
+  { prefixKey: "saleOrderPrefix", counterKey: "saleOrderCounter", label: "Sale Order" },
+  { prefixKey: "challanPrefix", counterKey: "challanCounter", label: "Delivery Challan" },
 ] as const;
 
 type FormState = Record<string, string | number>;

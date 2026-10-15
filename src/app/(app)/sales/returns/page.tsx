@@ -35,7 +35,7 @@ interface ReturnRow {
 }
 
 export default function SalesReturnPage() {
-  useDocumentTitle("Sales Return");
+  useDocumentTitle("Credit Note / Sales Return");
   const [query, setQuery] = useState("");
   const [sales, setSales] = useState<SaleOption[]>([]);
   const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null);
@@ -125,7 +125,7 @@ export default function SalesReturnPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-lg border border-slate-200 bg-white p-4">
-        <h1 className="mb-3 text-lg font-bold text-slate-900">Sales Return</h1>
+        <h1 className="mb-3 text-lg font-bold text-slate-900">Credit Note / Sales Return</h1>
 
         {!selectedSaleId ? (
           <div className="relative max-w-sm">

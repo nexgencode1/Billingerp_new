@@ -6,6 +6,10 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// GST compliance values (state codes, B2CL threshold, UQC map...) live in their own file so a
+// human can verify/update them without touching code. // VERIFY: official rule
+builder.Configuration.AddJsonFile("Config/gst.json", optional: false, reloadOnChange: true);
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -22,10 +26,22 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddSingleton<SqlConnectionFactory>();
 
 builder.Services.AddScoped<TokenService>();
+builder.Services.AddSingleton<PortalTokenService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<StockService>();
 builder.Services.AddScoped<NumberingService>();
 builder.Services.AddScoped<AuditService>();
+builder.Services.AddScoped<DemoDataService>();
+builder.Services.AddSingleton<GstConfig>();
+builder.Services.AddScoped<SaleService>();
+builder.Services.AddScoped<RecurringInvoiceService>();
+builder.Services.AddScoped<ReminderService>();
+builder.Services.AddHostedService<RecurringInvoiceWorker>();
+builder.Services.AddHostedService<ReminderWorker>();
+builder.Services.AddScoped<BackupService>();
+builder.Services.AddHostedService<AutoBackupWorker>();
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<AskService>();
 
 var app = builder.Build();
 

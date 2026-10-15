@@ -136,6 +136,24 @@ public static class DbSeeder
             await db.SaveChangesAsync();
         }
 
+        // Cash & Bank: one Cash in Hand account, plus a default bank account built from the business
+        // profile's bank details (only when there are no accounts yet, so user edits are never undone).
+        if (!await db.MoneyAccounts.AnyAsync())
+        {
+            var business = await db.Businesses.FirstAsync();
+            db.MoneyAccounts.Add(new MoneyAccount { Name = "Cash in Hand", Kind = "CASH" });
+            db.MoneyAccounts.Add(new MoneyAccount
+            {
+                Name = business.BankName ?? "Bank Account",
+                Kind = "BANK",
+                BankName = business.BankName,
+                AccountNumber = business.AccountNumber,
+                Ifsc = business.Ifsc,
+                IsDefault = true,
+            });
+            await db.SaveChangesAsync();
+        }
+
         // Admin user
         var adminRole = roleByName["ADMIN"];
         var admin = await db.Users.FirstOrDefaultAsync(u => u.Email == "admin@business.local");

@@ -6,4 +6,4 @@ public record BusinessUpdateRequest(
     string? Ifsc, string? UpiId, string? InvoicePrefix, string? PurchasePrefix, string? PaymentPrefix,
     string? ExpensePrefix, string? SaleReturnPrefix, string? PurchaseReturnPrefix, string? DateFormat,
     string? Currency, int? DecimalPlaces, bool? ShowLogo, bool? ShowGst, bool? ShowHsn, bool? ShowSignature,
-    bool? ShowTerms, string? TermsText);
+    bool? ShowTerms, string? TermsText, string? EstimatePrefix = null, string? SaleOrderPrefix = null, string? ChallanPrefix = null);

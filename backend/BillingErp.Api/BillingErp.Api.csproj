@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <None Include="Data\StoredProcedures\*.sql" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Config\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -22,6 +22,9 @@ CREATE OR ALTER PROCEDURE dbo.sp_Business_Update
     @ExpensePrefix NVARCHAR(20) = NULL,
     @SaleReturnPrefix NVARCHAR(20) = NULL,
     @PurchaseReturnPrefix NVARCHAR(20) = NULL,
+    @EstimatePrefix NVARCHAR(20) = NULL,
+    @SaleOrderPrefix NVARCHAR(20) = NULL,
+    @ChallanPrefix NVARCHAR(20) = NULL,
     @DateFormat NVARCHAR(30) = NULL,
     @Currency NVARCHAR(10) = NULL,
     @DecimalPlaces INT = NULL,
@@ -65,6 +68,9 @@ BEGIN
         ExpensePrefix = COALESCE(@ExpensePrefix, ExpensePrefix),
         SaleReturnPrefix = COALESCE(@SaleReturnPrefix, SaleReturnPrefix),
         PurchaseReturnPrefix = COALESCE(@PurchaseReturnPrefix, PurchaseReturnPrefix),
+        EstimatePrefix = COALESCE(@EstimatePrefix, EstimatePrefix),
+        SaleOrderPrefix = COALESCE(@SaleOrderPrefix, SaleOrderPrefix),
+        ChallanPrefix = COALESCE(@ChallanPrefix, ChallanPrefix),
         DateFormat = COALESCE(@DateFormat, DateFormat),
         Currency = COALESCE(@Currency, Currency),
         DecimalPlaces = COALESCE(@DecimalPlaces, DecimalPlaces),
@@ -77,5 +83,8 @@ BEGIN
         UpdatedAt = SYSUTCDATETIME()
     WHERE Id = @Id;
 
-    SELECT * FROM dbo.Businesses WHERE Id = @Id;
+    -- Explicit column list (not *): BusinessController maps this onto a positional record.
+    SELECT TOP 1
+        Id, Name, Logo, Address, Phone, Email, Website, Gstin, Pan, State, Pincode, BankName, AccountNumber, Ifsc, UpiId, InvoicePrefix, PurchasePrefix, PaymentPrefix, ExpensePrefix, SaleReturnPrefix, PurchaseReturnPrefix, ProductionPrefix, SaleCounter, PurchaseCounter, PaymentCounter, ExpenseCounter, SaleReturnCounter, PurchaseReturnCounter, ProductionCounter, DateFormat, Currency, DecimalPlaces, ShowLogo, ShowGst, ShowHsn, ShowSignature, ShowTerms, TermsText, CreatedAt, UpdatedAt, EstimatePrefix, SaleOrderPrefix, ChallanPrefix, EstimateCounter, SaleOrderCounter, ChallanCounter
+    FROM dbo.Businesses WHERE Id = @Id;
 END

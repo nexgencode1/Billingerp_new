@@ -1,30 +1,22 @@
 "use client";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Trash2, Printer, Download, FilePlus } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Trash2, Printer, Download, FilePlus, Eye, Info } from "lucide-react";
 import { CustomerPicker } from "@/components/invoice/CustomerPicker";
 import { ProductSearchAdd } from "@/components/invoice/ProductSearchAdd";
+import { LineItemsEditor, TotalsSummary, addToCart, type CartItem } from "@/components/invoice/LineItemsEditor";
 import { Button, Input, Select } from "@/components/common";
 import { toast } from "@/lib/toast-store";
 import { computeInvoiceTotals } from "@/lib/gst";
 import { formatCurrency } from "@/lib/utils";
 import { generateInvoicePdf } from "@/lib/invoice-pdf";
+import { loadPrefill, type InvoicePrefill } from "@/lib/invoicePrefill";
+import { enqueueSale, isNetworkError } from "@/lib/offlineQueue";
 import type { Product } from "@/types/product";
 import type { Customer } from "@/types/party";
-
-interface CartItem {
-  productId: number;
-  productName: string;
-  sku: string;
-  unitLabel: string;
-  availableStock: number;
-  quantity: number;
-  rate: number;
-  discount: number;
-  gstRate: number;
-}
 
 interface SplitRow {
   method: "CASH" | "UPI" | "CARD" | "BANK";
@@ -69,7 +61,17 @@ interface SavedSale {
 const PAYMENT_METHODS: SplitRow["method"][] = ["CASH", "UPI", "CARD", "BANK"];
 
 export default function NewInvoicePage() {
+  return (
+    <Suspense>
+      <NewInvoiceForm />
+    </Suspense>
+  );
+}
+
+function NewInvoiceForm() {
   useDocumentTitle("New Invoice");
+  const searchParams = useSearchParams();
+  const [prefill, setPrefill] = useState<InvoicePrefill | null>(null);
   const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -89,6 +91,26 @@ export default function NewInvoicePage() {
       .then(setBusiness);
   }, []);
 
+  // ?fromDocument=<id> converts an Estimate / Sale Order / Challan; ?duplicate=<saleId> copies an
+  // old invoice. Either way the form is only pre-filled — the user reviews and saves as usual.
+  const fromDocument = searchParams.get("fromDocument");
+  const duplicate = searchParams.get("duplicate");
+  useEffect(() => {
+    if (!fromDocument && !duplicate) return;
+    let cancelled = false;
+    loadPrefill({ fromDocument, duplicate })
+      .then((p) => {
+        if (cancelled) return;
+        setPrefill(p);
+        setCustomer(p.customer);
+        setCart(p.items);
+      })
+      .catch((e: Error) => toast.error(e.message));
+    return () => {
+      cancelled = true;
+    };
+  }, [fromDocument, duplicate]);
+
   const isInterstate = Boolean(
     business?.state && customer?.state && business.state.toLowerCase() !== customer.state.toLowerCase()
   );
@@ -103,37 +125,11 @@ export default function NewInvoicePage() {
   const dueAmount = Math.max(0, totals.grandTotal - paidAmount);
 
   function addProduct(p: Product) {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.productId === p.id);
-      if (existing) {
-        return prev.map((i) => (i.productId === p.id ? { ...i, quantity: i.quantity + 1 } : i));
-      }
-      return [
-        ...prev,
-        {
-          productId: p.id,
-          productName: p.name,
-          sku: p.sku,
-          unitLabel: p.unit.shortName || p.unit.name,
-          availableStock: p.currentStock,
-          quantity: 1,
-          rate: p.sellingPrice,
-          discount: 0,
-          gstRate: p.gstRate,
-        },
-      ];
-    });
-  }
-
-  function updateItem(productId: number, patch: Partial<CartItem>) {
-    setCart((prev) => prev.map((i) => (i.productId === productId ? { ...i, ...patch } : i)));
-  }
-
-  function removeItem(productId: number) {
-    setCart((prev) => prev.filter((i) => i.productId !== productId));
+    setCart((prev) => addToCart(prev, p));
   }
 
   function resetForm() {
+    setPrefill(null);
     setCustomer(null);
     setCart([]);
     setPaymentMode("SINGLE");
@@ -157,23 +153,42 @@ export default function NewInvoicePage() {
           : []
         : splitRows.filter((r) => r.amount > 0);
 
-    const res = await fetch("/api/sales", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        invoiceDate: new Date(invoiceDate).toISOString(),
-        customerId: customer?.id ?? null,
-        items: cart.map((i) => ({
-          productId: i.productId,
-          productName: i.productName,
-          quantity: i.quantity,
-          rate: i.rate,
-          discount: i.discount,
-          gstRate: i.gstRate,
-        })),
-        payments,
-      }),
-    });
+    const payload = {
+      invoiceDate: new Date(invoiceDate).toISOString(),
+      customerId: customer?.id ?? null,
+      items: cart.map((i) => ({
+        productId: i.productId,
+        productName: i.productName,
+        quantity: i.quantity,
+        rate: i.rate,
+        discount: i.discount,
+        gstRate: i.gstRate,
+      })),
+      payments,
+      sourceDocumentId: prefill?.sourceDocumentId ?? null,
+    };
+
+    // Offline (or the server can't be reached): keep the bill on this device and sync it later.
+    let res: Response;
+    try {
+      if (!navigator.onLine) throw new TypeError("offline");
+      res = await fetch("/api/sales", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      setSaving(false);
+      if (!isNetworkError(e)) throw e;
+      try {
+        await enqueueSale(payload, { customerName: customer?.name ?? null, itemCount: cart.length, grandTotal: totals.grandTotal });
+        toast.success("You're offline — invoice saved on this device. It will sync automatically when the connection is back.");
+        resetForm();
+      } catch {
+        toast.error("Offline and this browser can't store invoices locally. Please try again when back online.");
+      }
+      return;
+    }
     const data = await res.json().catch(() => ({}));
     setSaving(false);
 
@@ -188,6 +203,7 @@ export default function NewInvoicePage() {
   function handleDownloadPdf() {
     if (!savedSale) return;
     generateInvoicePdf({
+      title: "TAX INVOICE",
       invoiceNumber: savedSale.invoiceNumber,
       invoiceDate: savedSale.invoiceDate,
       business,
@@ -220,6 +236,11 @@ export default function NewInvoicePage() {
           <Button variant="outline" onClick={handleDownloadPdf}>
             <Download className="h-4 w-4" /> Download PDF
           </Button>
+          <Link href={`/sales/invoices/${savedSale.id}`}>
+            <Button variant="outline">
+              <Eye className="h-4 w-4" /> View Invoice
+            </Button>
+          </Link>
           <Link href="/sales/invoices">
             <Button variant="outline">View Sales History</Button>
           </Link>
@@ -248,6 +269,13 @@ export default function NewInvoicePage() {
         </div>
       </div>
 
+      {prefill && (
+        <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{prefill.banner} Review the items and payment, then save.</span>
+        </div>
+      )}
+
       <div data-tour="tour-customer-picker" className="rounded-lg border border-slate-200 bg-white p-4">
         <p className="mb-2 text-sm font-semibold text-slate-700">Customer</p>
         <CustomerPicker customer={customer} onSelect={setCustomer} />
@@ -257,90 +285,7 @@ export default function NewInvoicePage() {
         <p className="mb-2 text-sm font-semibold text-slate-700">Products</p>
         <ProductSearchAdd onAdd={addProduct} />
 
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-max text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase text-slate-500">
-                <th className="py-2 pr-3">Product</th>
-                <th className="py-2 pr-3">Qty</th>
-                <th className="py-2 pr-3">Price</th>
-                <th className="py-2 pr-3">Discount</th>
-                <th className="py-2 pr-3">GST %</th>
-                <th className="py-2 pr-3 text-right">Total</th>
-                <th className="py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {cart.map((item) => {
-                const computed = computeInvoiceTotals([item], false).items[0];
-                return (
-                  <tr key={item.productId} className="border-b border-slate-100">
-                    <td className="py-2 pr-3">
-                      <p className="font-medium text-slate-800">{item.productName}</p>
-                      <p className="text-xs text-slate-400">
-                        {item.sku} · Stock: {item.availableStock}
-                      </p>
-                    </td>
-                    <td className="py-2 pr-3">
-                      <input
-                        type="number"
-                        min={0.01}
-                        step="0.01"
-                        value={item.quantity}
-                        onChange={(e) => updateItem(item.productId, { quantity: Number(e.target.value) })}
-                        className="h-8 w-20 rounded border border-slate-300 px-2"
-                      />
-                    </td>
-                    <td className="py-2 pr-3">
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={item.rate}
-                        onChange={(e) => updateItem(item.productId, { rate: Number(e.target.value) })}
-                        className="h-8 w-24 rounded border border-slate-300 px-2"
-                      />
-                    </td>
-                    <td className="py-2 pr-3">
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={item.discount}
-                        onChange={(e) => updateItem(item.productId, { discount: Number(e.target.value) })}
-                        className="h-8 w-20 rounded border border-slate-300 px-2"
-                      />
-                    </td>
-                    <td className="py-2 pr-3">
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step="0.01"
-                        value={item.gstRate}
-                        onChange={(e) => updateItem(item.productId, { gstRate: Number(e.target.value) })}
-                        className="h-8 w-20 rounded border border-slate-300 px-2"
-                      />
-                    </td>
-                    <td className="py-2 pr-3 text-right font-medium">{formatCurrency(computed.total)}</td>
-                    <td className="py-2 text-right">
-                      <button onClick={() => removeItem(item.productId)} className="text-red-500 hover:text-red-700">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {cart.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
-                    No products added yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <LineItemsEditor items={cart} onChange={setCart} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -430,42 +375,13 @@ export default function NewInvoicePage() {
 
         <div className="rounded-lg border border-slate-200 bg-white p-4">
           <p className="mb-3 text-sm font-semibold text-slate-700">Bill Summary</p>
-          <div className="flex flex-col gap-1.5 text-sm">
-            <Row label="Subtotal" value={totals.subtotal} />
-            <Row label="Discount" value={totals.discount} negative />
-            <Row label="Taxable Amount" value={totals.taxableAmount} />
-            {isInterstate ? (
-              <Row label="IGST" value={totals.igst} />
-            ) : (
-              <>
-                <Row label="CGST" value={totals.cgst} />
-                <Row label="SGST" value={totals.sgst} />
-              </>
-            )}
-            <div className="mt-2 flex justify-between border-t border-slate-200 pt-2 text-base font-bold">
-              <span>Grand Total</span>
-              <span>{formatCurrency(totals.grandTotal)}</span>
-            </div>
-          </div>
+          <TotalsSummary totals={totals} isInterstate={isInterstate} />
 
           <Button className="mt-4 w-full" size="lg" loading={saving} onClick={handleSave}>
             Save Invoice
           </Button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Row({ label, value, negative }: { label: string; value: number; negative?: boolean }) {
-  if (!value) return null;
-  return (
-    <div className="flex justify-between text-slate-600">
-      <span>{label}</span>
-      <span>
-        {negative ? "-" : ""}
-        {formatCurrency(value)}
-      </span>
     </div>
   );
 }

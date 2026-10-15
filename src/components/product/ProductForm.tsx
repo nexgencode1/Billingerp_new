@@ -7,6 +7,7 @@ import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { Button, Input, Select } from "@/components/common";
 import { toast } from "@/lib/toast-store";
+import { HsnSuggest } from "@/components/product/HsnSuggest";
 import type { Product } from "@/types/product";
 
 const formSchema = z.object({
@@ -48,6 +49,8 @@ export function ProductForm({ product }: { product?: Product }) {
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(formSchema),
@@ -157,6 +160,17 @@ export function ProductForm({ product }: { product?: Product }) {
         <Input label="Selling Price *" type="number" step="0.01" {...register("sellingPrice")} error={errors.sellingPrice?.message} />
         <Input label="MRP" type="number" step="0.01" {...register("mrp")} />
         <Input label="GST %" type="number" step="0.01" {...register("gstRate")} error={errors.gstRate?.message} />
+
+        <div className="sm:col-span-2 lg:col-span-3">
+          <HsnSuggest
+            name={watch("name") ?? ""}
+            hsn={watch("hsnCode") ?? ""}
+            onPick={(code, rate) => {
+              setValue("hsnCode", code, { shouldDirty: true });
+              if (rate !== null) setValue("gstRate", rate, { shouldDirty: true, shouldValidate: true });
+            }}
+          />
+        </div>
 
         {isEdit ? (
           <Input label="Current Stock" value={product!.currentStock} disabled />

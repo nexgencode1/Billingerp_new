@@ -92,6 +92,85 @@ Other useful commands: `npm run lint`, `npx tsc --noEmit` (frontend); `dotnet bu
   migration — a safe, non-breaking type change since JSON still serializes it as a plain number).
 - **Audit log**: `Services/AuditService.cs`'s `LogAsync()` (→ `sp_Audit_Log`) is called from most
   mutating endpoints but isn't exhaustive, matching the original's coverage.
+- **Reports**: every `sp_Report_*` takes optional filter params (default `NULL` = no filter) and
+  `sp_Report_Trend` gives period-bucketed totals for charts. Frontend: `src/lib/reports.ts` holds
+  each report's types + export-document builder (shared by the report pages and the `/reports`
+  "download all" hub); `src/lib/reportExport.ts` renders those to Excel/PDF/print;
+  `ReportFilterBar` (period presets incl. Indian FY) is the common filter UI.
+- **Demo data** (`/settings/backup` → Load Demo Data, `POST /api/demo/load`): `Services/
+  DemoDataService.cs` replays ~6 months of history through the *real* SPs inside one transaction;
+  demo products have SKU prefix `DEMO-` (that's how `sp_Demo_Status` detects it). Note: stock
+  ledger rows get the load time as `CreatedAt`, not the backdated document date.
+- **Estimates / Sale Orders / Delivery Challans**: one `SalesDocuments` table (`DocType`), routes
+  `/sales/[kind]` (`estimates|orders|challans`). They never move stock or dues. "Convert to
+  Invoice" opens `/sales/new?fromDocument=<id>` pre-filled; `POST /api/sales` with
+  `sourceDocumentId` makes `sp_Sale_Create` mark the document CONVERTED in the same transaction
+  (THROW 51003 → 400 if it's no longer OPEN). `/sales/new?duplicate=<saleId>` copies an invoice.
+  Credit/Debit Notes are the existing Sale/Purchase Returns, relabelled (as Vyapar does).
+- **Cash & Bank**: `MoneyAccounts` + `CashBankTransactions`; balances are derived, never stored.
+  `Data/StoredProcedures/fn_CashBank_Movements.sql` is the one deliberate non-procedure script (an
+  inline TVF; its name sorts before `sp_*` so it's created first) — routing rule: method CASH →
+  the CASH account, UPI/CARD/BANK → the default BANK account, CREDIT/"Store Credit" → no money.
+  Day Book (`sp_Report_DayBook`) and Balance Sheet (`sp_Report_BalanceSheet`, simplified, capital
+  = balancing figure) read from it.
+- **Business row is read by column list, not `SELECT *`**: `BusinessController` maps onto a
+  positional record, so adding a `Businesses` column means updating `sp_Business_Get`,
+  `sp_Business_Update` and that record together.
+- **Alerts bell** (`/api/alerts`, `sp_Alerts_Summary`): low stock, sales due > `Alerts:OverdueDays`
+  (appsettings, default 30), expired open estimates/orders — sections filtered by role.
+- **Client permissions**: `src/lib/permissions-context.tsx` (`useCan`) exposes `/api/auth/me`'s
+  map to client components for hiding buttons — UX only, backend still enforces.
+- **Tours**: `src/constants/tours.ts` — per-module tours + the full walkthrough, EN/HI; steps on
+  pages the role can't VIEW are dropped (module derived from the step's page).
+- **Sharing**: WhatsApp (`wa.me` link) / Email (`mailto:`) / UPI QR (`qrcode` npm, `upi://pay`) —
+  all free, open the user's own apps; payment confirmation stays manual.
+- **Sale creation lives in `Services/SaleService.cs`** (moved out of `SalesController.Create`) —
+  the one path used by POST `/api/sales` and by `RecurringInvoiceWorker`. Don't duplicate it.
+- **GST compliance config**: `backend/BillingErp.Api/Config/gst.json` (loaded in `Program.cs`,
+  read via `Services/GstConfig.cs`) holds state codes, the B2CL threshold, UQC map and the GSTR-1
+  JSON version — every value is `// VERIFY`. `GstReturnsController` (`/api/gst/gstr1|gstr3b`)
+  formats sales/purchases into GSTR-1 (B2B/B2CL/B2CS/HSN/docs + portal-style JSON) and a simplified
+  GSTR-3B; credit notes are listed but not in the JSON (sale returns have no tax split). HSN in
+  the HSN summary is the product's *current* HSN (no snapshot on SaleItems).
+- **HSN master** (`HsnCodes`, PK = Code): the app ships no codes/rates — admins import the official
+  list (Settings → Import, bulk `MERGE` via `sp_Hsn_ImportBulk`). Product form suggestions come from
+  that list + HSN/rates already used on your own products (`sp_Hsn_Suggest`).
+- **Background jobs** (`BackgroundService`, registered in `Program.cs`): `RecurringInvoiceWorker`
+  (every `Recurring:IntervalMinutes`, catches up missed occurrences, max 12/pass; occurrence n is
+  computed from StartDate so month-ends don't drift) and `ReminderWorker` (daily email reminders —
+  only if `Reminders:AutoEmailEnabled` AND `Smtp:Host`/`FromEmail` are set; off by default).
+  SMTP credentials belong in `appsettings.Development.json` / env vars (`Smtp__Password`), never
+  in the checked-in `appsettings.json`.
+- **Barcode**: labels via `jsbarcode` (CODE128 of barcode, else SKU) at `/products/labels`;
+  scanning via USB scanner (Enter in product search = exact barcode/SKU add) or camera
+  (`html5-qrcode`, lazy-loaded).
+- **Customer portal** (`/portal`, `/portal/login`, `/api/portal/*`): customers sign in with mobile +
+  password (`CustomerPortalAccounts`, bcrypt, 5 failures → 15 min lock). Portal JWTs are signed with
+  a key DERIVED from the shared secret (`<secret>|portal`, `Auth/PortalTokenService.cs` +
+  `src/lib/portal-jwt.ts`) and live in their own `portal_session` cookie, so a portal token can
+  never act as a staff session or vice versa. Every portal query is scoped by the token's
+  customerId; other customers' invoice ids return 404. Staff manage access from the key icon on
+  Customers (`/api/customers/{id}/portal`, CUSTOMERS EDIT).
+- **Ask your business** (`/reports/ask`, `/api/ask`, `Services/AskService.cs`): the language model
+  (local Ollama, optional — `Ai:*` in appsettings) only *classifies* the question into a fixed
+  intent + period phrase; it never sees the DB or writes SQL. Numbers always come from the existing
+  read-only SPs. Without Ollama, a rule-based English/Hindi/Hinglish parser is used.
+- **Dashboard insights**: `sp_Dashboard_Analytics` (period vs like-for-like previous period, top
+  products/customers, receivable aging, categories, weekdays) → `BusinessInsights` component.
+- **Auto backup**: `Services/BackupService.cs` (export logic shared with the manual download) +
+  `AutoBackupWorker` (daily at `Backup:RunAtHour`, keeps `Backup:KeepCount`, folder
+  `Backup:Directory`, default `backend/BillingErp.Api/backups/` — git-ignored). The export reads
+  the big JSON output parameters **synchronously** on purpose: SqlClient's async path is
+  pathologically slow for large NVARCHAR(MAX) values (minutes vs seconds).
+- **Offline mode**: `public/sw.js` (network-first; caches visited pages, `/_next/static`, and
+  `/api/products|customers|business`; never caches the portal; cleared on logout) +
+  `src/lib/offlineQueue.ts` (IndexedDB). An invoice saved while offline is queued and POSTed to
+  `/api/sales` on reconnect — numbering happens at sync time; server rejections (e.g. stock) land
+  in Sales → Offline Invoices for retry/discard.
+- **E2E check**: `python scripts/e2e_flow_test.py` (both servers running) walks the main business
+  flows and asserts the numbers — it creates "Flow Test …" records, so dev/test DB only.
+- **Python heredoc pitfall**: patching C# regexes through `python - <<EOF` turned `\b` into a
+  literal backspace (0x08) once — if a regex "mysteriously" stops matching, `cat -A` the line.
 - **Backup/Restore** (`/settings/backup`): generic, schema-driven — `sp_Backup_ExportTable`/
   `sp_Backup_ClearTable`/`sp_Backup_ImportTable` use dynamic SQL against a hardcoded table
   allowlist (never user input) plus `sys.columns` metadata to stay generic across all ~33 tables
@@ -130,7 +209,7 @@ deliberately not fleshed out further:
 
 Other known gaps:
 - **No image/file upload** — product images and expense attachments are plain URL text fields.
-- **No WhatsApp/Email sending** from the invoice screen.
+- **No automatic WhatsApp/Email sending** — the invoice/estimate screens open a pre-filled `wa.me` / `mailto:` link in the user's own app (free); server-side sending (SMTP / WhatsApp Business API) is not built.
 - Behavioral quirks carried over faithfully from the original rather than "fixed" during the
   migration (see the git history / migration notes for the full list): sale cancel doesn't reverse
   payments or create a refund; sales/purchase returns don't touch the original invoice's paid/due
@@ -186,3 +265,284 @@ Other known gaps:
   data server-side (see `src/app/(app)/products/[id]/page.tsx`, the customer/supplier ledger
   pages, or `src/app/(app)/layout.tsx` for the pattern) — never import a database client directly
   from a Next.js file; there isn't one anymore.
+
+  # Billing ERP — Project Guide (CLAUDE.md)
+
+> This file is the single source of truth for building this project.
+> Read it fully before writing any code. Follow the business logic in
+> Section 5 **exactly** — it must not be changed or "simplified".
+
+---
+
+## 1. What we are building
+
+A full **Billing ERP** (business management system) with:
+Billing / Invoicing, Inventory, Accounting, Customers, Suppliers,
+Purchase, Payments, Reports, Users & Roles, Settings — and stubs for
+CRM, HR & Payroll, Manufacturing. Everything is **GST-ready (India)**.
+
+Two separate programs that talk over HTTP:
+- **Frontend (UI)** — what the user sees.
+- **Backend + Database** — where data is saved and all rules run.
+
+---
+
+## 2. HARD CONSTRAINTS (read first)
+
+1. **No paid APIs, no paid services, no subscriptions.** Use only free
+   / open-source libraries and self-hostable tools. If a task seems to
+   need a paid service, STOP and add a manual/free fallback instead,
+   and leave a `// TODO: paid option` comment. Do not add a paid SDK.
+2. **All business rules live in the backend**, never in the frontend.
+   The UI only displays and collects input.
+3. **Never store plaintext passwords.** Always hash with bcrypt.
+4. **Do not invent GST rules, tax rates, or compliance thresholds.**
+   Where a real-world rule/threshold is needed, use a value from a
+   config file and add a `// VERIFY: official rule` comment. These
+   rules change over time and must be confirmed by a human.
+5. Keep secrets (JWT key, DB connection, SMTP) in environment
+   variables / config, never hard-coded.
+
+---
+
+## 3. Tech stack (do not swap without asking)
+
+**Frontend**
+- TypeScript, React 19, Next.js 16 (App Router)
+- Tailwind CSS
+- Zustand (client state)
+- Recharts (charts)
+
+**Backend**
+- C#, ASP.NET Core (.NET 10) Web API
+- Dapper for queries; EF Core for migrations/schema
+
+**Database**
+- SQL Server (Express edition is free — fine for dev)
+- T-SQL, Stored Procedures for the heavy business writes
+
+**Security**
+- JWT stored in an **HTTP-only cookie**
+- bcrypt for password hashing
+- Role-Based Access Control (RBAC)
+
+All of the above have free editions/licenses. Keep it that way.
+
+---
+
+## 4. Architecture & request flow
+
+```
+Browser (Next.js)  ──/api/*──►  .NET Core API  ──Stored Proc──►  SQL Server
+   UI only                    all business rules              data storage
+```
+
+Every request:
+1. Backend checks the JWT token → who is this user + which role.
+2. Backend checks RBAC → is this role allowed to do this action? If
+   not, return **403 Forbidden** (do this in the backend, not by
+   hiding buttons in the UI).
+3. Backend applies the rule (GST / stock / due).
+4. Backend reads/writes the DB (use a stored proc for multi-step
+   writes so they are atomic).
+5. Response goes back to the UI.
+
+---
+
+## 5. Core business logic (implement EXACTLY)
+
+### 5.1 Auth
+- Login: look up user by email → must be `active` → compare given
+  password to stored bcrypt hash (hash-to-hash, never plaintext).
+- On success, issue a JWT containing `userId` and `role`; set it as an
+  **HTTP-only cookie**.
+- Every protected endpoint validates the JWT and the role.
+
+### 5.2 Invoice / document numbering
+- Sale invoice number auto-increments: `INV-00001`, `INV-00002`, …
+- Purchase number: `PUR-00001`, …
+- The prefix (`INV`, `PUR`) comes from Settings and is configurable.
+- Numbering must be gap-free and unique. Generate the number inside
+  the same DB transaction that saves the document (never in the UI).
+
+### 5.3 GST calculation (India)
+- Decision rule:
+  - **If customer state == business state → CGST + SGST**
+    (split the tax rate in two halves).
+  - **Else → IGST** (single combined rate).
+- Tax rate per line comes from the product's tax rate (see HSN below).
+- Do the calculation in the backend and store the computed tax on the
+  saved invoice. `// VERIFY: current GST rules`
+
+### 5.4 Stock ledger
+- On **Sale** save → product quantity **decreases**.
+- On **Purchase** save → product quantity **increases**.
+- Both are ledger entries; the running stock is derived from the
+  ledger. The stock update and the document save must happen in **one
+  atomic transaction** — either both succeed or neither does.
+- Admin can do a manual **inventory adjustment** (also a ledger entry).
+
+### 5.5 Payments & dues
+- `due = total_amount − amount_received_so_far`.
+- "Receive Payment" (from customer) and "Pay Supplier" both add a
+  payment record and reduce the due.
+- When `due == 0`, mark the document **Paid**.
+- Dashboard receivable/payable are computed by summing open dues, not
+  stored separately.
+
+### 5.6 Reports
+- 6 report types: Sales, Purchase, GST, Profit, Payment, Expense.
+- All are date-range filtered aggregations over existing transactions
+  (e.g. `Profit = Sales − Purchase − Expense`).
+- Export to Excel/PDF using free libraries only.
+
+---
+
+## 6. Modules & RBAC
+
+15 modules, each with 6 actions: View, Create, Edit, Delete, Export,
+Print. Enforce permissions in the backend.
+
+**Admin / Full User** — everything: full CRUD on Sales, Purchase,
+Products, Customers, Suppliers; Inventory adjustment; CRM, HR &
+Payroll, Manufacturing; all Reports (view/print/export); Users & Roles;
+Settings, Backup/Restore, Excel Import.
+
+**Cashier** — limited, counter-focused:
+- Can: view Dashboard; create + print Sale Invoice; view Products
+  (no add); add Customer; receive Payment; view Reports.
+- Cannot: Purchase, Inventory, CRM, HR, Manufacturing; any
+  delete/cancel; Users, Roles, Settings.
+
+Permission matrix (main modules):
+
+| Module            | View | Create | Edit | Delete | Export | Print |
+|-------------------|:----:|:------:|:----:|:------:|:------:|:-----:|
+| **Admin** — Sales | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Admin — Purchase  | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Admin — Inventory | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Admin — Users/Set.| ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Cashier** — Sales | ✓ | ✓ | – | – | – | ✓ |
+| Cashier — Products  | ✓ | – | – | – | – | – |
+| Cashier — Customers | ✓ | ✓ | – | – | – | – |
+| Cashier — Payments  | ✓ | ✓ | – | – | – | – |
+| Cashier — Reports   | ✓ | – | – | – | – | – |
+| Cashier — Purch/Inv/Users | – | – | – | – | – | – |
+
+Make the matrix data-driven (a `role_permissions` table), so roles can
+be edited by an Admin without code changes.
+
+---
+
+## 7. Advanced features — build in PHASES
+
+Build the core (Sections 5–6) first and get it working. Then add these
+advanced features **in this order**. Every item here must stay free.
+
+### Phase 1 — Quick wins (do these first)
+- **Barcode / QR scan** — generate with `JsBarcode` / `bwip-js`; scan
+  with `html5-qrcode` (camera) or a USB scanner (acts as keyboard).
+- **UPI QR on invoice** — build a `upi://pay?pa=<VPA>&pn=<name>&am=<amt>`
+  string and render it as a QR. Payment confirmation is **manual**
+  (cashier marks Paid). `// TODO: paid gateway for auto-reconcile`
+- **Send invoice via WhatsApp / Email** — WhatsApp via a
+  `https://wa.me/<number>?text=<msg>` click link; Email via free SMTP
+  (Gmail SMTP or the domain's SMTP).
+- **Duplicate / template invoice** — one click to copy a past invoice.
+
+### Phase 2 — Compliance + collection
+- **Auto payment reminder** — scheduled job finds overdue dues and
+  emails the customer (free). SMS/WhatsApp-bulk stay out (paid).
+- **GSTR-1 / GSTR-3B export** — format existing data into the official
+  JSON schema. `// VERIFY: current schema`
+- **HSN + tax-rate auto-suggest** — a local lookup table built from the
+  government's public HSN list; suggest HSN + rate per product.
+- **Recurring invoices** — scheduled job creates fixed invoices.
+- **Audit log** — a table recording who changed/deleted what and when.
+
+### Phase 3 — Smart + reliable
+- **Dashboard analytics** — trends, profit margin, top products
+  (Recharts).
+- **Customer portal** — customers log in to see their invoices/dues.
+- **Offline mode + cloud backup** — IndexedDB + service worker for
+  offline, sync on reconnect; backup via free storage quota
+  (e.g. Google Drive free tier).
+- **AI natural-language reports** — run a **local** model via `Ollama`
+  (e.g. Llama/Mistral) so there is no per-call fee and data stays
+  private. `// TODO: optional free API tier as alternative`
+
+---
+
+## 8. Coding conventions
+- TypeScript strict mode on; no `any` unless justified.
+- Backend: clear layering — Controller → Service (rules) → Repository
+  (Dapper/SP). No business logic in controllers.
+- Validate all input on the backend; never trust the client.
+- Money: store as integer minor units or `decimal(18,2)` — never float.
+- Return proper HTTP codes (401 not-logged-in, 403 no-permission,
+  400 bad-input, 404 not-found).
+- Keep functions small; name things in full words.
+
+---
+
+## 9. Suggested project structure
+```
+/frontend        Next.js app (UI only)
+/backend         .NET Core Web API (all rules)
+/database        SQL scripts, stored procs, EF migrations, seed
+/docs            this file + specs
+```
+
+---
+
+## 10. Build & run (fill in after scaffolding)
+> Update these once the projects are scaffolded.
+```
+# frontend
+cd frontend && npm install && npm run dev
+
+# backend
+cd backend && dotnet restore && dotnet run
+
+# database
+# apply EF migrations / run SQL scripts in /database
+```
+
+---
+
+## 11. Definition of Done (QA checklist)
+A feature is "done" only when:
+- [ ] Backend enforces permissions (a wrong role gets **403**, tested
+      by calling the API directly, not just hiding the UI button).
+- [ ] Business math verified: GST split, invoice number gap-free,
+      stock up/down, due = total − received.
+- [ ] Atomic writes hold (kill mid-save → no half-saved data).
+- [ ] Input validation + correct error codes.
+- [ ] Works for both Admin and Cashier as per the matrix.
+- [ ] No paid service crept in.
+
+---
+
+## 12. Seed data (dev only — change before production)
+- Admin  → `admin@business.local` / `Admin@123`
+- Cashier → `cashier@business.local` / `Cashier@123`
+- A few sample products, one customer, one supplier.
+Store these seed passwords already **bcrypt-hashed**, not plaintext.
+
+---
+
+## 13. What NOT to do
+- Do not add any paid API, gateway, or subscription SDK.
+- Do not put business rules (GST, stock, permissions) in the frontend.
+- Do not store plaintext passwords or hard-code secrets.
+- Do not invent tax rates / compliance thresholds — read from config
+  and flag with `// VERIFY`.
+- Do not change the tech stack or the numbering/GST/stock logic without
+  asking first.
+
+---
+
+### How to work with me on this
+When I give you a task, first tell me your plan and which files you'll
+touch, then implement one feature at a time, then show me how to test
+it. Keep changes small and reviewable.

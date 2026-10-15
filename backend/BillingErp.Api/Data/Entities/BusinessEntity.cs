@@ -25,6 +25,9 @@ public class Business
     public string SaleReturnPrefix { get; set; } = "SR";
     public string PurchaseReturnPrefix { get; set; } = "PR";
     public string ProductionPrefix { get; set; } = "PO";
+    public string EstimatePrefix { get; set; } = "EST";
+    public string SaleOrderPrefix { get; set; } = "SO";
+    public string ChallanPrefix { get; set; } = "DC";
 
     public int SaleCounter { get; set; }
     public int PurchaseCounter { get; set; }
@@ -33,6 +36,9 @@ public class Business
     public int SaleReturnCounter { get; set; }
     public int PurchaseReturnCounter { get; set; }
     public int ProductionCounter { get; set; }
+    public int EstimateCounter { get; set; }
+    public int SaleOrderCounter { get; set; }
+    public int ChallanCounter { get; set; }
 
     public string DateFormat { get; set; } = "dd/MM/yyyy";
     public string Currency { get; set; } = "INR";

@@ -5,7 +5,9 @@ BEGIN
     SET NOCOUNT ON;
 
     IF @TableName NOT IN (
-        'AuditLogs','Notifications','ProductionConsumptions','ProductionOrders','BOMItems','Payrolls',
+        'AuditLogs','Notifications','CashBankTransactions','MoneyAccounts','SalesDocumentItems','SalesDocuments',
+        'CustomerPortalAccounts','PaymentReminders','RecurringInvoiceItems','RecurringInvoices','HsnCodes',
+        'ProductionConsumptions','ProductionOrders','BOMItems','Payrolls',
         'Attendances','Employees','LeadActivities','Leads','Expenses','ExpenseCategories','StockAdjustments',
         'StockTransactions','Payments','PurchaseReturnItems','PurchaseReturns','PurchaseItems','Purchases',
         'SaleReturnItems','SaleReturns','SaleItems','Sales','Suppliers','Customers','Products','Units',

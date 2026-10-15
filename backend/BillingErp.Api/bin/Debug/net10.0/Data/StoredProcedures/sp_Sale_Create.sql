@@ -19,6 +19,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_Sale_Create
     @ItemsJson NVARCHAR(MAX),
     @PaymentsJson NVARCHAR(MAX),
     @CreatedById INT,
+    @SourceDocumentId INT = NULL, -- Estimate / Sale Order / Challan being converted (optional)
     @SaleId INT OUTPUT,
     @InvoiceNumber NVARCHAR(50) OUTPUT
 AS
@@ -38,6 +39,15 @@ BEGIN
          @GrandTotal, @PaidAmount, @DueAmount, @PaymentStatus, @PaymentMethod, 'CONFIRMED', @CreatedById, SYSUTCDATETIME());
 
     SET @SaleId = SCOPE_IDENTITY();
+
+    IF @SourceDocumentId IS NOT NULL
+    BEGIN
+        UPDATE dbo.SalesDocuments
+        SET Status = 'CONVERTED', ConvertedSaleId = @SaleId
+        WHERE Id = @SourceDocumentId AND Status = 'OPEN';
+        IF @@ROWCOUNT = 0
+            THROW 51003, 'This document is no longer open (already converted or cancelled).', 1;
+    END
 
     INSERT INTO dbo.SaleItems (SaleId, ProductId, ProductName, Quantity, Rate, Discount, GstRate, TaxableAmount, GstAmount, Total)
     SELECT @SaleId, ProductId, ProductName, Quantity, Rate, Discount, GstRate, TaxableAmount, GstAmount, Total

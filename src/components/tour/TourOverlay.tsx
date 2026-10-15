@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { X } from "lucide-react";
+import { Compass, X } from "lucide-react";
 import { useTourStore } from "@/lib/tour-store";
-import { getTourSteps } from "@/constants/tour-steps";
+import { FULL_TOUR, MODULE_TOUR_LIST, buildTour, suggestedTourFor } from "@/constants/tours";
+import { usePermissionMap } from "@/lib/permissions-context";
 import { Button } from "@/components/common/Button";
 
 interface Rect {
@@ -16,39 +17,94 @@ interface Rect {
 
 const PADDING = 8;
 
-function LanguagePrompt() {
-  const { chooseLanguage, end } = useTourStore();
+function TourMenu() {
+  const { language, setLanguage, launch, end } = useTourStore();
+  const permissions = usePermissionMap();
+  const pathname = usePathname();
+  const can = (module: string) => Boolean(permissions[module]?.includes("VIEW"));
+
+  const suggested = suggestedTourFor(pathname);
+  const tours = [FULL_TOUR, ...MODULE_TOUR_LIST]
+    .map((t) => ({ ...t, steps: buildTour(t.id, language, can) }))
+    .filter((t) => t.steps.length > 0)
+    .sort((a, b) => (a.id === suggested ? -1 : b.id === suggested ? 1 : 0));
 
   return (
     <div className="fixed inset-0 z-[200]">
-      <div className="fixed inset-0 bg-black/60" />
-      <div className="fixed left-1/2 top-1/2 w-80 -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-5 shadow-xl">
-        <div className="mb-3 flex items-start justify-between gap-2">
-          <h3 className="text-sm font-bold text-slate-900">Choose your language / अपनी भाषा चुनें</h3>
-          <button onClick={end} className="text-slate-400 hover:text-slate-600">
+      <div className="fixed inset-0 bg-black/60" onClick={end} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tour-menu-title"
+        className="fixed left-1/2 top-1/2 flex max-h-[85vh] w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg bg-white shadow-xl"
+      >
+        <div className="flex items-start justify-between gap-2 border-b border-slate-100 p-4">
+          <div>
+            <h3 id="tour-menu-title" className="flex items-center gap-2 text-sm font-bold text-slate-900">
+              <Compass className="h-4 w-4 text-blue-600" />
+              {language === "hi" ? "गाइडेड टूर चुनें" : "Take a guided tour"}
+            </h3>
+            <p className="text-xs text-slate-500">
+              {language === "hi" ? "हर टूर आपको सही पेज पर ले जाकर समझाएगा।" : "Each tour walks you through the real screens."}
+            </p>
+          </div>
+          <button onClick={end} className="text-slate-400 hover:text-slate-600" aria-label="Close">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="flex gap-2">
-          <Button className="flex-1" onClick={() => chooseLanguage("en")}>
-            English
-          </Button>
-          <Button className="flex-1" onClick={() => chooseLanguage("hi")}>
-            हिंदी
-          </Button>
+
+        <div className="flex gap-1 px-4 pt-3" role="radiogroup" aria-label="Language">
+          {(["en", "hi"] as const).map((l) => (
+            <button
+              key={l}
+              role="radio"
+              aria-checked={language === l}
+              onClick={() => setLanguage(l)}
+              className={`rounded-full px-3 py-1 text-xs font-medium ${language === l ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+            >
+              {l === "en" ? "English" : "हिंदी"}
+            </button>
+          ))}
         </div>
+
+        <ul className="flex flex-col gap-1.5 overflow-y-auto p-4">
+          {tours.map((t) => (
+            <li key={t.id}>
+              <button
+                onClick={() => launch(t.id, t.steps)}
+                className={`flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-left transition hover:border-blue-400 hover:bg-blue-50 ${
+                  t.id === suggested ? "border-blue-300 bg-blue-50/60" : "border-slate-200"
+                }`}
+              >
+                <span>
+                  <span className="block text-sm font-semibold text-slate-800">
+                    {t.title[language]}
+                    {t.id === suggested && (
+                      <span className="ml-2 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                        {language === "hi" ? "इस पेज के लिए" : "This page"}
+                      </span>
+                    )}
+                  </span>
+                  <span className="block text-xs text-slate-500">{t.description[language]}</span>
+                </span>
+                <span className="shrink-0 text-xs text-slate-400">
+                  {t.steps.length} {language === "hi" ? "स्टेप" : "steps"}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );
 }
 
 export function TourOverlay() {
-  const { choosingLanguage, active, language, stepIndex, next, prev, end } = useTourStore();
+  const { menuOpen, active, steps, stepIndex, next, prev, end } = useTourStore();
   const [rect, setRect] = useState<Rect | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
-  const steps = getTourSteps(language);
   const step = steps[stepIndex];
 
   // Navigate to whatever page this step needs, whenever the step (or arrival) changes.
@@ -102,7 +158,7 @@ export function TourOverlay() {
     };
   }, [active, step, stepIndex, pathname]);
 
-  if (choosingLanguage) return <LanguagePrompt />;
+  if (menuOpen) return <TourMenu />;
   if (!active || !step) return null;
 
   const vw = typeof window !== "undefined" ? window.innerWidth : 1280;

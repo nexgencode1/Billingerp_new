@@ -1,60 +1,79 @@
 "use client";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import { DataTable, type Column } from "@/components/tables/DataTable";
-import { DateRangeFilter, DEFAULT_RANGE, type DateRange } from "@/components/reports/DateRangeFilter";
 import { StatCard } from "@/components/reports/StatCard";
 import { Badge } from "@/components/common/Badge";
+import {
+  ReportFilterBar,
+  describeFilters,
+  filterQuery,
+  initialFilterState,
+  type FilterField,
+} from "@/components/reports/ReportFilterBar";
+import { ReportActions } from "@/components/reports/ReportActions";
+import { ReportError, ReportPageHeader } from "@/components/reports/ReportPageHeader";
+import { ChartCard, RankedBars, SERIES_COLORS, TrendChart, bucketByPeriod } from "@/components/reports/ReportCharts";
+import { salesDocument, type SalesReport, type SalesRow } from "@/lib/reports";
+import { useFilterOptions, useReportData } from "@/lib/useReportData";
+import { trendGrouping } from "@/lib/dateRanges";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
-interface Row {
-  id: number;
-  invoiceNumber: string;
-  invoiceDate: string;
-  customer: { name: string } | null;
-  grandTotal: number;
-  paidAmount: number;
-  dueAmount: number;
-  paymentStatus: string;
-  status: string;
-}
-
-interface Summary {
-  totalInvoices: number;
-  totalSales: number;
-  totalDiscount: number;
-  taxableAmount: number;
-  totalGst: number;
-  totalPaid: number;
-  totalDue: number;
-}
+const PAYMENT_STATUS_OPTIONS = [
+  { value: "PAID", label: "Paid" },
+  { value: "PARTIAL", label: "Partial" },
+  { value: "DUE", label: "Unpaid" },
+];
 
 export default function SalesReportPage() {
   useDocumentTitle("Sales Report");
-  const [range, setRange] = useState<DateRange>(DEFAULT_RANGE);
-  const [rows, setRows] = useState<Row[]>([]);
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState(initialFilterState);
+  const customerOptions = useFilterOptions("/api/customers");
+  const fields: FilterField[] = [
+    { key: "customerId", label: "Customer", options: customerOptions },
+    { key: "paymentStatus", label: "Payment Status", options: PAYMENT_STATUS_OPTIONS },
+  ];
+  const { data, loading, error } = useReportData<SalesReport>(`/api/reports/sales?${filterQuery(filters)}`);
+  const grouping = trendGrouping(filters.range);
 
-  useEffect(() => {
-    setLoading(true);
-    fetch(`/api/reports/sales?from=${range.from}&to=${range.to}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setRows(data.rows);
-        setSummary(data.summary);
-      })
-      .finally(() => setLoading(false));
-  }, [range]);
+  const trend = useMemo(
+    () =>
+      bucketByPeriod(
+        (data?.rows ?? []).filter((r) => r.status === "CONFIRMED"),
+        (r) => r.invoiceDate,
+        { sales: (r) => r.grandTotal, received: (r) => r.paidAmount },
+        grouping
+      ),
+    [data, grouping]
+  );
 
-  const columns: Column<Row>[] = [
-    { key: "invoiceNumber", header: "Invoice No" },
-    { key: "invoiceDate", header: "Date", render: (r) => formatDate(r.invoiceDate), exportValue: (r) => formatDate(r.invoiceDate) },
+  const columns: Column<SalesRow>[] = [
+    {
+      key: "invoiceNumber",
+      header: "Invoice No",
+      sortable: true,
+      render: (r) => (
+        <Link href={`/sales/invoices/${r.id}`} className="font-medium text-blue-600 hover:underline">
+          {r.invoiceNumber}
+        </Link>
+      ),
+      exportValue: (r) => r.invoiceNumber,
+    },
+    { key: "invoiceDate", header: "Date", sortable: true, render: (r) => formatDate(r.invoiceDate), exportValue: (r) => formatDate(r.invoiceDate) },
     { key: "customer", header: "Customer", render: (r) => r.customer?.name ?? "Walk-in", exportValue: (r) => r.customer?.name ?? "Walk-in" },
-    { key: "grandTotal", header: "Amount", render: (r) => formatCurrency(r.grandTotal), exportValue: (r) => r.grandTotal },
+    { key: "grandTotal", header: "Amount", sortable: true, render: (r) => formatCurrency(r.grandTotal), exportValue: (r) => r.grandTotal },
     { key: "paidAmount", header: "Paid", render: (r) => formatCurrency(r.paidAmount), exportValue: (r) => r.paidAmount },
-    { key: "dueAmount", header: "Due", render: (r) => formatCurrency(r.dueAmount), exportValue: (r) => r.dueAmount },
+    { key: "dueAmount", header: "Due", sortable: true, render: (r) => formatCurrency(r.dueAmount), exportValue: (r) => r.dueAmount },
+    {
+      key: "paymentStatus",
+      header: "Payment",
+      render: (r) => (
+        <Badge tone={r.paymentStatus === "PAID" ? "green" : r.paymentStatus === "PARTIAL" ? "yellow" : "red"}>{r.paymentStatus}</Badge>
+      ),
+      exportValue: (r) => r.paymentStatus,
+    },
     {
       key: "status",
       header: "Status",
@@ -63,12 +82,24 @@ export default function SalesReportPage() {
     },
   ];
 
+  const summary = data?.summary;
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-slate-900">Sales Report</h1>
-        <DateRangeFilter range={range} onChange={setRange} />
-      </div>
+      <ReportPageHeader
+        title="Sales Report"
+        description="Invoices, collections and top-selling products for the selected period."
+        actions={
+          <ReportActions
+            filename={`sales-report-${filters.range.from}-to-${filters.range.to}`}
+            disabled={!data}
+            getDocument={() => salesDocument(data!, describeFilters(filters, fields))}
+          />
+        }
+      />
+      <ReportFilterBar state={filters} onChange={setFilters} fields={fields} />
+
+      {error && <ReportError message={error} />}
 
       {summary && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
@@ -77,12 +108,40 @@ export default function SalesReportPage() {
           <StatCard label="Discount" value={formatCurrency(summary.totalDiscount)} />
           <StatCard label="Taxable Amount" value={formatCurrency(summary.taxableAmount)} />
           <StatCard label="GST" value={formatCurrency(summary.totalGst)} />
-          <StatCard label="Paid" value={formatCurrency(summary.totalPaid)} />
+          <StatCard label="Received" value={formatCurrency(summary.totalPaid)} />
           <StatCard label="Due" value={formatCurrency(summary.totalDue)} />
         </div>
       )}
 
-      <DataTable columns={columns} data={rows} loading={loading} searchKeys={["invoiceNumber"]} exportFilename="sales-report" rowKey={(r) => r.id} />
+      {data && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <ChartCard title="Sales vs Received" subtitle={grouping === "day" ? "Daily" : "Monthly"}>
+              <TrendChart
+                data={trend}
+                grouping={grouping}
+                series={[
+                  { key: "sales", label: "Sales", color: SERIES_COLORS.blue },
+                  { key: "received", label: "Received", color: SERIES_COLORS.aqua },
+                ]}
+              />
+            </ChartCard>
+          </div>
+          <ChartCard title="Top Selling Products" subtitle="By sales amount">
+            <RankedBars items={data.topItems.map((t) => ({ ...t, hint: `${t.quantity} sold` }))} />
+          </ChartCard>
+        </div>
+      )}
+
+      <DataTable
+        columns={columns}
+        data={data?.rows ?? []}
+        loading={loading}
+        searchKeys={["invoiceNumber"]}
+        searchPlaceholder="Search invoice no..."
+        exportFilename="sales-report"
+        rowKey={(r) => r.id}
+      />
     </div>
   );
 }

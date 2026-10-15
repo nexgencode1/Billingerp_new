@@ -49,6 +49,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ProductionOrder> ProductionOrders => Set<ProductionOrder>();
     public DbSet<ProductionConsumption> ProductionConsumptions => Set<ProductionConsumption>();
 
+    public DbSet<SalesDocument> SalesDocuments => Set<SalesDocument>();
+    public DbSet<SalesDocumentItem> SalesDocumentItems => Set<SalesDocumentItem>();
+
+    public DbSet<MoneyAccount> MoneyAccounts => Set<MoneyAccount>();
+    public DbSet<CashBankTransaction> CashBankTransactions => Set<CashBankTransaction>();
+
+    public DbSet<HsnCode> HsnCodes => Set<HsnCode>();
+    public DbSet<RecurringInvoice> RecurringInvoices => Set<RecurringInvoice>();
+    public DbSet<RecurringInvoiceItem> RecurringInvoiceItems => Set<RecurringInvoiceItem>();
+    public DbSet<PaymentReminder> PaymentReminders => Set<PaymentReminder>();
+
+    public DbSet<CustomerPortalAccount> CustomerPortalAccounts => Set<CustomerPortalAccount>();
+
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Notification> Notifications => Set<Notification>();
 
@@ -76,6 +89,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Payroll>().HasIndex(e => new { e.EmployeeId, e.Month, e.Year }).IsUnique();
         modelBuilder.Entity<BOMItem>().HasIndex(e => new { e.FinishedProductId, e.ComponentProductId }).IsUnique();
         modelBuilder.Entity<ProductionOrder>().HasIndex(e => e.OrderNumber).IsUnique();
+        modelBuilder.Entity<SalesDocument>().HasIndex(e => e.DocNumber).IsUnique();
+        modelBuilder.Entity<SalesDocument>().HasIndex(e => new { e.DocType, e.DocDate });
+        modelBuilder.Entity<CashBankTransaction>().HasIndex(e => e.Date);
+        modelBuilder.Entity<HsnCode>().HasKey(e => e.Code);
+        modelBuilder.Entity<CustomerPortalAccount>().HasKey(e => e.CustomerId);
+        modelBuilder.Entity<CustomerPortalAccount>().HasOne(e => e.Customer).WithOne().HasForeignKey<CustomerPortalAccount>(e => e.CustomerId);
+        modelBuilder.Entity<HsnCode>().Property(e => e.Code).HasMaxLength(10);
+        modelBuilder.Entity<HsnCode>().Property(e => e.GstRate).HasPrecision(5, 2);
+        modelBuilder.Entity<RecurringInvoice>().HasIndex(e => new { e.IsActive, e.NextRunDate });
+        modelBuilder.Entity<PaymentReminder>().HasIndex(e => new { e.SaleId, e.SentAt });
+
+        modelBuilder.Entity<CashBankTransaction>()
+            .HasOne(e => e.FromAccount).WithMany().HasForeignKey(e => e.FromAccountId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<CashBankTransaction>()
+            .HasOne(e => e.ToAccount).WithMany().HasForeignKey(e => e.ToAccountId).OnDelete(DeleteBehavior.Restrict);
 
         // BOMItem has two FKs into Product (finished + component) — name them explicitly.
         modelBuilder.Entity<BOMItem>()
@@ -122,6 +150,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(e => e.PurchaseReturnId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<LeadActivity>().HasOne(e => e.Lead).WithMany(l => l.Activities)
             .HasForeignKey(e => e.LeadId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<RecurringInvoiceItem>().HasOne(e => e.RecurringInvoice).WithMany(r => r.Items)
+            .HasForeignKey(e => e.RecurringInvoiceId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SalesDocumentItem>().HasOne(e => e.SalesDocument).WithMany(d => d.Items)
+            .HasForeignKey(e => e.SalesDocumentId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<ProductionConsumption>().HasOne(e => e.ProductionOrder).WithMany(o => o.Consumptions)
             .HasForeignKey(e => e.ProductionOrderId).OnDelete(DeleteBehavior.Cascade);
     }

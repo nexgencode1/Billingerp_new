@@ -3,12 +3,14 @@ import { useDocumentTitle } from "@/lib/useDocumentTitle";
 
 import Link from "next/link";
 import { useState } from "react";
-import { Plus, Pencil, Trash2, BookOpen } from "lucide-react";
+import { Plus, Pencil, Trash2, BookOpen, KeyRound } from "lucide-react";
 import { DataTable, type Column } from "@/components/tables/DataTable";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/common";
 import { Badge } from "@/components/common/Badge";
 import { CustomerFormModal } from "@/components/party/CustomerFormModal";
+import { PortalAccessModal } from "@/components/party/PortalAccessModal";
+import { useCan } from "@/lib/permissions-context";
 import { useCrud } from "@/lib/useCrud";
 import { formatCurrency } from "@/lib/utils";
 import type { Customer } from "@/types/party";
@@ -21,6 +23,8 @@ export default function CustomersPage() {
   const [editing, setEditing] = useState<Customer | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [portalFor, setPortalFor] = useState<number | null>(null);
+  const canEdit = useCan("CUSTOMERS", "EDIT");
 
   async function handleSave(payload: Record<string, unknown>) {
     return editing ? update(editing.id, payload) : create(payload);
@@ -84,6 +88,11 @@ export default function CustomersPage() {
                 <BookOpen className="h-4 w-4" />
               </Button>
             </Link>
+            {canEdit && (
+              <Button variant="ghost" size="sm" title="Customer portal access" aria-label={`Portal access for ${row.name}`} onClick={() => setPortalFor(row.id)}>
+                <KeyRound className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -101,6 +110,8 @@ export default function CustomersPage() {
           </>
         )}
       />
+
+      {portalFor !== null && <PortalAccessModal customerId={portalFor} onClose={() => setPortalFor(null)} />}
 
       <CustomerFormModal key={modalKey} open={modalOpen} onClose={() => setModalOpen(false)} onSave={handleSave} customer={editing} />
 

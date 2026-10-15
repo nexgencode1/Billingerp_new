@@ -34,7 +34,7 @@ interface ReturnRow {
 }
 
 export default function PurchaseReturnPage() {
-  useDocumentTitle("Purchase Return");
+  useDocumentTitle("Debit Note / Purchase Return");
   const [query, setQuery] = useState("");
   const [purchases, setPurchases] = useState<PurchaseOption[]>([]);
   const [selectedPurchaseId, setSelectedPurchaseId] = useState<number | null>(null);
@@ -117,7 +117,7 @@ export default function PurchaseReturnPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-lg border border-slate-200 bg-white p-4">
-        <h1 className="mb-3 text-lg font-bold text-slate-900">Purchase Return</h1>
+        <h1 className="mb-3 text-lg font-bold text-slate-900">Debit Note / Purchase Return</h1>
 
         {!selectedPurchaseId ? (
           <div className="relative max-w-sm">

@@ -21,7 +21,8 @@ public class BusinessController(SqlConnectionFactory connectionFactory, AuditSer
         int SaleCounter, int PurchaseCounter, int PaymentCounter, int ExpenseCounter, int SaleReturnCounter,
         int PurchaseReturnCounter, int ProductionCounter, string DateFormat, string Currency, int DecimalPlaces,
         bool ShowLogo, bool ShowGst, bool ShowHsn, bool ShowSignature, bool ShowTerms, string? TermsText,
-        DateTime CreatedAt, DateTime UpdatedAt);
+        DateTime CreatedAt, DateTime UpdatedAt, string EstimatePrefix, string SaleOrderPrefix, string ChallanPrefix,
+        int EstimateCounter, int SaleOrderCounter, int ChallanCounter);
 
     [HttpGet]
     [RequireSession]
@@ -46,7 +47,7 @@ public class BusinessController(SqlConnectionFactory connectionFactory, AuditSer
             body.Name, body.Logo, body.Address, body.Phone, body.Email, body.Website, body.Gstin, body.Pan,
             body.State, body.Pincode, body.BankName, body.AccountNumber, body.Ifsc, body.UpiId,
             body.InvoicePrefix, body.PurchasePrefix, body.PaymentPrefix, body.ExpensePrefix,
-            body.SaleReturnPrefix, body.PurchaseReturnPrefix, body.DateFormat, body.Currency, body.DecimalPlaces,
+            body.SaleReturnPrefix, body.PurchaseReturnPrefix, body.EstimatePrefix, body.SaleOrderPrefix, body.ChallanPrefix, body.DateFormat, body.Currency, body.DecimalPlaces,
             ShowLogoProvided = body.ShowLogo.HasValue, ShowLogo = body.ShowLogo ?? false,
             ShowGstProvided = body.ShowGst.HasValue, ShowGst = body.ShowGst ?? false,
             ShowHsnProvided = body.ShowHsn.HasValue, ShowHsn = body.ShowHsn ?? false,
