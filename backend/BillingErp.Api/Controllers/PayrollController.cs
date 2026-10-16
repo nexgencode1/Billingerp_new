@@ -11,6 +11,7 @@ namespace BillingErp.Api.Controllers;
 // Ports src/app/api/hr/payroll/route.ts, generate/route.ts, [id]/route.ts.
 // All data access via sp_Payroll_*.
 [ApiController]
+[RequirePlanFeature("HR")]
 [Route("api/hr/payroll")]
 public class PayrollController(SqlConnectionFactory connectionFactory, AuditService audit) : ControllerBase
 {

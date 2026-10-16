@@ -12,6 +12,7 @@ public record PortalLoginRequest(string? Mobile, string? Password);
 // Customer self-service portal. Every data endpoint is scoped to the customer id inside the
 // portal token — a customer can never request another customer's records.
 [ApiController]
+[RequirePlanFeature("PORTAL")]
 [Route("api/portal")]
 public class PortalController(SqlConnectionFactory connectionFactory, PortalTokenService tokens, IWebHostEnvironment env, AuditService audit) : ControllerBase
 {
@@ -167,6 +168,7 @@ public record PortalAccessRequest(bool Enabled, string? Password);
 
 // Staff side: turn portal access on/off for a customer and set their password.
 [ApiController]
+[RequirePlanFeature("PORTAL")]
 [Route("api/customers/{customerId:int}/portal")]
 public class CustomerPortalAdminController(SqlConnectionFactory connectionFactory, AuditService audit) : ControllerBase
 {

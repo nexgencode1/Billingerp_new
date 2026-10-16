@@ -9,6 +9,7 @@ BEGIN
     SET NOCOUNT ON;
 
     IF @TableName NOT IN (
+        'SubscriptionPayments','Subscriptions','SubscriptionPlans',
         'AuditLogs','Notifications','CashBankTransactions','MoneyAccounts','SalesDocumentItems','SalesDocuments',
         'CustomerPortalAccounts','PaymentReminders','RecurringInvoiceItems','RecurringInvoices','HsnCodes',
         'ProductionConsumptions','ProductionOrders','BOMItems','Payrolls',

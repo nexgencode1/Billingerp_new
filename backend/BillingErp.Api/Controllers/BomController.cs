@@ -10,6 +10,7 @@ namespace BillingErp.Api.Controllers;
 
 // Ports src/app/api/manufacturing/bom/route.ts and [id]/route.ts. All data access via sp_Bom_*.
 [ApiController]
+[RequirePlanFeature("MANUFACTURING")]
 [Route("api/manufacturing/bom")]
 public class BomController(SqlConnectionFactory connectionFactory, AuditService audit) : ControllerBase
 {

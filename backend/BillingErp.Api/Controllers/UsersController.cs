@@ -11,7 +11,7 @@ namespace BillingErp.Api.Controllers;
 // Ports src/app/api/users/route.ts and [id]/route.ts.
 [ApiController]
 [Route("api/users")]
-public class UsersController(SqlConnectionFactory connectionFactory, AuditService audit) : ControllerBase
+public class UsersController(SqlConnectionFactory connectionFactory, AuditService audit, PlanAccessService planAccess) : ControllerBase
 {
     private record UserRow(int Id, string Name, string Email, string? Mobile, bool Status, DateTime? LastLogin, int RoleId, string RoleName);
 
@@ -37,6 +37,9 @@ public class UsersController(SqlConnectionFactory connectionFactory, AuditServic
         if (body is null || string.IsNullOrWhiteSpace(body.Name)) return BadRequest(new { error = "Name is required" });
         if (string.IsNullOrWhiteSpace(body.Email) || !body.Email.Contains('@')) return BadRequest(new { error = "Invalid email address" });
         if (string.IsNullOrEmpty(body.Password) || body.Password.Length < 6) return BadRequest(new { error = "Password must be at least 6 characters" });
+
+        var planError = await planAccess.CheckNewUserAsync();
+        if (planError is not null) return StatusCode(402, new { error = planError, code = "PLAN_LIMIT" });
 
         var session = HttpContext.GetSession()!;
         using var connection = connectionFactory.Create();

@@ -9,12 +9,17 @@ import { clearOfflineCaches } from "@/lib/offlineQueue";
 import type { SessionPayload } from "@/types/auth";
 import { useTourStore } from "@/lib/tour-store";
 import { ProfileModal } from "@/components/layout/ProfileModal";
+import { PlanBadge } from "@/components/subscription/PlanBadge";
+import { usePlanStore } from "@/lib/plan-store";
+import { cn } from "@/lib/utils";
 
 export function Header({ session }: { session: SessionPayload }) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const startTour = useTourStore((s) => s.start);
+  const plan = usePlanStore((s) => s.plan);
+  const planLight = !plan ? null : plan.status === "ACTIVE" || plan.status === "TRIAL" ? (plan.cancelAtPeriodEnd ? "bg-amber-500" : "bg-green-500") : "bg-red-500";
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -45,13 +50,21 @@ export function Header({ session }: { session: SessionPayload }) {
           <HelpCircle className="h-5 w-5" />
         </button>
 
+        <PlanBadge />
+
         <div data-tour="header-profile" className="relative">
           <button
             onClick={() => setMenuOpen((v) => !v)}
             className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
+            <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
               {session.name.charAt(0).toUpperCase()}
+              {planLight && (
+                <span
+                  title={plan?.planName ? `${plan.planName} plan` : "No active plan"}
+                  className={cn("absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white", planLight)}
+                />
+              )}
             </div>
             <div className="hidden text-left sm:block">
               <p className="text-sm font-medium text-slate-800 leading-tight">{session.name}</p>
@@ -65,6 +78,13 @@ export function Header({ session }: { session: SessionPayload }) {
               <div className="border-b border-slate-100 px-3 py-2">
                 <p className="text-sm font-medium text-slate-800">{session.name}</p>
                 <p className="text-xs text-slate-500">{session.email}</p>
+                {plan && (
+                  <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-slate-700">
+                    <span className={cn("h-2 w-2 rounded-full", planLight)} />
+                    {plan.planName ?? "No active plan"}
+                    {plan.status === "ACTIVE" && !plan.cancelAtPeriodEnd && <span className="text-green-700">· Active</span>}
+                  </p>
+                )}
               </div>
               <button
                 onClick={() => {

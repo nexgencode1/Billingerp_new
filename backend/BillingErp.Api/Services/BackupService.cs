@@ -17,6 +17,7 @@ public class BackupService(SqlConnectionFactory connectionFactory, IConfiguratio
     // Children-first order (safe delete order); reversed = parent-first (safe insert order).
     public static readonly string[] TablesChildToParent =
     [
+        "SubscriptionPayments", "Subscriptions", "SubscriptionPlans",
         "AuditLogs", "Notifications", "CashBankTransactions", "MoneyAccounts", "SalesDocumentItems", "SalesDocuments",
         "CustomerPortalAccounts", "PaymentReminders", "RecurringInvoiceItems", "RecurringInvoices", "HsnCodes",
         "ProductionConsumptions", "ProductionOrders", "BOMItems", "Payrolls",

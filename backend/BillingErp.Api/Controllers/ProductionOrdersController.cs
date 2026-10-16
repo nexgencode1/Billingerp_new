@@ -12,6 +12,7 @@ namespace BillingErp.Api.Controllers;
 // Ports src/app/api/manufacturing/production-orders/route.ts and [id]/complete/route.ts.
 // All data access via sp_ProductionOrder_*/sp_Bom_*/sp_Stock_*.
 [ApiController]
+[RequirePlanFeature("MANUFACTURING")]
 [Route("api/manufacturing/production-orders")]
 public class ProductionOrdersController(SqlConnectionFactory connectionFactory, AuditService audit) : ControllerBase
 {

@@ -13,6 +13,7 @@ public record RecurringSaveRequest(string? Name, int CustomerId, string? Frequen
     bool? IsActive, string? Notes, List<SaleItemInput>? Items);
 
 [ApiController]
+[RequirePlanFeature("RECURRING")]
 [Route("api/recurring-invoices")]
 public class RecurringInvoicesController(SqlConnectionFactory connectionFactory, RecurringInvoiceService recurring, AuditService audit) : ControllerBase
 {

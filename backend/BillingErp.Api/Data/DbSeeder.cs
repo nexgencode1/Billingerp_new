@@ -305,5 +305,61 @@ public static class DbSeeder
                 db.ExpenseCategories.Add(new ExpenseCategory { Name = name });
         }
         await db.SaveChangesAsync();
+
+        // Software subscription plans (sample prices/limits — edit the SubscriptionPlans rows to change
+        // them). Missing codes are inserted; a row is (re)filled only while its Tier is still empty
+        // (i.e. created before tiers existed), so later admin edits are never overwritten.
+        const string basicLocked = "CRM,HR,MANUFACTURING,GST_RETURNS,PORTAL,RECURRING,AI_REPORTS";
+        string[] basicFeatures =
+        [
+            "GST invoices, estimates & delivery challans", "WhatsApp & Email invoice sharing", "UPI QR on invoices",
+            "Inventory, barcode labels & stock ledger", "Customers, suppliers & party ledgers",
+            "Payments, expenses & cash/bank", "All reports with Excel / PDF export", "Offline billing",
+            "-CRM, HR & Payroll, Manufacturing", "-GSTR-1 / GSTR-3B export", "-Customer portal & recurring invoices",
+            "-AI \"Ask your business\" reports",
+        ];
+        string[] proFeatures =
+        [
+            "Everything in Basic", "CRM — leads & follow-ups", "HR — employees, attendance & payroll",
+            "Manufacturing — BOM & production", "GSTR-1 / GSTR-3B export", "Customer portal",
+            "Recurring invoices & payment reminders", "AI \"Ask your business\" reports",
+        ];
+        static string Lines(params string[] items) => string.Join("\n", items);
+        (string Code, string Name, string Description, decimal Price, int Months, string Tier, int? InvoiceLimit, string? LimitPeriod,
+            int? MaxUsers, string? Locked, string Features, int Sort)[] planSeeds =
+        [
+            ("FREE_TRIAL", "Free Trial", "Try every feature free — no card needed", 0m, 0, "TRIAL", 10, "TOTAL", null, null,
+                Lines("10 bills free", "All Pro features unlocked", "WhatsApp & Email invoice sharing", "No payment needed"), 0),
+            ("BASIC_MONTHLY", "Basic", "For a single counter shop", 499m, 1, "BASIC", 300, "MONTH", 3, basicLocked,
+                Lines(["300 bills / month", "Up to 3 users", .. basicFeatures]), 1),
+            ("BASIC_YEARLY", "Basic", "For a single counter shop", 4999m, 12, "BASIC", 300, "MONTH", 3, basicLocked,
+                Lines(["300 bills / month", "Up to 3 users", "2 months free vs monthly", .. basicFeatures]), 2),
+            ("PRO_MONTHLY", "Pro", "Unlimited everything for growing businesses", 999m, 1, "PRO", null, null, null, null,
+                Lines(["Unlimited bills", "Unlimited users", .. proFeatures]), 3),
+            ("PRO_YEARLY", "Pro", "Unlimited everything for growing businesses", 9999m, 12, "PRO", null, null, null, null,
+                Lines(["Unlimited bills", "Unlimited users", "2 months free vs monthly", .. proFeatures]), 4),
+        ];
+        foreach (var seed in planSeeds)
+        {
+            var plan = await db.SubscriptionPlans.FirstOrDefaultAsync(p => p.Code == seed.Code);
+            if (plan is not null && !string.IsNullOrEmpty(plan.Tier)) continue;
+            if (plan is null)
+            {
+                plan = new SubscriptionPlan { Code = seed.Code };
+                db.SubscriptionPlans.Add(plan);
+            }
+            plan.Name = seed.Name;
+            plan.Description = seed.Description;
+            plan.Price = seed.Price;
+            plan.PeriodMonths = seed.Months;
+            plan.Tier = seed.Tier;
+            plan.InvoiceLimit = seed.InvoiceLimit;
+            plan.InvoiceLimitPeriod = seed.LimitPeriod;
+            plan.MaxUsers = seed.MaxUsers;
+            plan.LockedFeatures = seed.Locked;
+            plan.Features = seed.Features;
+            plan.SortOrder = seed.Sort;
+        }
+        await db.SaveChangesAsync();
     }
 }

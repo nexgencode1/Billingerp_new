@@ -42,6 +42,9 @@ builder.Services.AddScoped<BackupService>();
 builder.Services.AddHostedService<AutoBackupWorker>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<AskService>();
+builder.Services.AddScoped<RazorpayService>();
+builder.Services.AddScoped<SubscriptionService>();
+builder.Services.AddScoped<PlanAccessService>();
 
 var app = builder.Build();
 

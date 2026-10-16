@@ -10,6 +10,7 @@ namespace BillingErp.Api.Controllers;
 // Ports src/app/api/hr/attendance/route.ts. All data access via sp_Attendance_*.
 // The original route never calls logAudit — preserved as-is.
 [ApiController]
+[RequirePlanFeature("HR")]
 [Route("api/hr/attendance")]
 public class AttendanceController(SqlConnectionFactory connectionFactory) : ControllerBase
 {

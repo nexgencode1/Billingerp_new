@@ -157,9 +157,22 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Business Profile", href: "/settings/business" },
       { label: "Invoice Settings", href: "/settings/invoice" },
       { label: "Number Series", href: "/settings/number-series" },
+      { label: "Subscription", href: "/settings/subscription" },
       { label: "Import Data", href: "/settings/import" },
       { label: "Backup", href: "/settings/backup" },
       { label: "Audit Log", href: "/settings/audit-log" },
     ],
   },
 ];
+
+// Menu filter (sidebar + mobile drawer): a group whose name matches keeps all its pages, otherwise
+// only the matching pages stay.
+export function filterNavGroups(groups: NavGroup[], query: string): NavGroup[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return groups;
+  return groups.flatMap((group) => {
+    if (group.label.toLowerCase().includes(q)) return [group];
+    const children = group.children?.filter((c) => c.label.toLowerCase().includes(q));
+    return children?.length ? [{ ...group, children }] : [];
+  });
+}

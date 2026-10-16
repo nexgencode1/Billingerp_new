@@ -1,7 +1,7 @@
 "use client";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Plus, Eye } from "lucide-react";
 import { DataTable, type Column } from "@/components/tables/DataTable";
@@ -10,7 +10,6 @@ import { Button, Input, Select } from "@/components/common";
 import { Badge } from "@/components/common/Badge";
 import { useCrud } from "@/lib/useCrud";
 
-const STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "WON", "LOST"];
 const STATUS_TONE: Record<string, "slate" | "blue" | "yellow" | "green" | "red"> = {
   NEW: "slate",
   CONTACTED: "blue",

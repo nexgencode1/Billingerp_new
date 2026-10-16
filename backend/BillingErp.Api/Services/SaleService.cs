@@ -15,7 +15,7 @@ public record SaleCreateOutcome(int? SaleId, string? InvoiceNumber, int ErrorSta
 // The single path that creates a sale invoice — used by POST /api/sales and by the recurring
 // invoice worker, so both get the same validation, stock check, GST split and numbering.
 // (Moved out of SalesController.Create unchanged, plus a negative-payment guard.)
-public class SaleService(SqlConnectionFactory connectionFactory)
+public class SaleService(SqlConnectionFactory connectionFactory, PlanAccessService planAccess)
 {
     public async Task<SaleCreateOutcome> CreateAsync(SaleCreateRequest? body, int userId)
     {
@@ -28,6 +28,10 @@ public class SaleService(SqlConnectionFactory connectionFactory)
         }
         if (body.Payments?.Any(p => p.Amount < 0) == true)
             return SaleCreateOutcome.Fail(400, "Payment amount can't be negative");
+
+        // Subscription bill allowance (free trial / Basic monthly limit / no plan).
+        var planError = await planAccess.CheckNewInvoiceAsync();
+        if (planError is not null) return SaleCreateOutcome.Fail(402, planError);
 
         using var connection = connectionFactory.Create();
 

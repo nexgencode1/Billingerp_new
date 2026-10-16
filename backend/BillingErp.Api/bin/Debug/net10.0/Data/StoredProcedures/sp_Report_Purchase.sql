@@ -36,7 +36,7 @@ BEGIN
 
     SELECT TOP 10
         s.Name,
-        COUNT(*) AS Quantity,
+        CAST(COUNT(*) AS DECIMAL(18,2)) AS Quantity, -- TopItemRow.Quantity is decimal (shared with top items)
         SUM(p.GrandTotal) AS Amount
     FROM dbo.Purchases p
     JOIN dbo.Suppliers s ON s.Id = p.SupplierId

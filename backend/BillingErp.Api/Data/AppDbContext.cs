@@ -62,6 +62,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<CustomerPortalAccount> CustomerPortalAccounts => Set<CustomerPortalAccount>();
 
+    public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+    public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<SubscriptionPayment> SubscriptionPayments => Set<SubscriptionPayment>();
+
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Notification> Notifications => Set<Notification>();
 
@@ -99,6 +103,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<HsnCode>().Property(e => e.GstRate).HasPrecision(5, 2);
         modelBuilder.Entity<RecurringInvoice>().HasIndex(e => new { e.IsActive, e.NextRunDate });
         modelBuilder.Entity<PaymentReminder>().HasIndex(e => new { e.SaleId, e.SentAt });
+        modelBuilder.Entity<SubscriptionPlan>().Property(e => e.Code).HasMaxLength(50);
+        modelBuilder.Entity<SubscriptionPlan>().Property(e => e.Tier).HasMaxLength(20);
+        modelBuilder.Entity<SubscriptionPlan>().Property(e => e.InvoiceLimitPeriod).HasMaxLength(10);
+        modelBuilder.Entity<SubscriptionPlan>().HasIndex(e => e.Code).IsUnique();
+        modelBuilder.Entity<SubscriptionPayment>().Property(e => e.Status).HasMaxLength(20);
+        modelBuilder.Entity<SubscriptionPayment>().Property(e => e.RazorpayOrderId).HasMaxLength(64);
+        modelBuilder.Entity<SubscriptionPayment>().Property(e => e.RazorpayPaymentId).HasMaxLength(64);
+        modelBuilder.Entity<SubscriptionPayment>().HasIndex(e => e.RazorpayOrderId).IsUnique();
+        modelBuilder.Entity<SubscriptionPayment>().HasIndex(e => e.RazorpayPaymentId).IsUnique().HasFilter("[RazorpayPaymentId] IS NOT NULL");
+        modelBuilder.Entity<SubscriptionPayment>().HasIndex(e => new { e.SubscriptionId, e.Status });
 
         modelBuilder.Entity<CashBankTransaction>()
             .HasOne(e => e.FromAccount).WithMany().HasForeignKey(e => e.FromAccountId).OnDelete(DeleteBehavior.Restrict);

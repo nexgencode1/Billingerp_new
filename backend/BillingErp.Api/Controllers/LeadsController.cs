@@ -11,6 +11,7 @@ namespace BillingErp.Api.Controllers;
 // Ports src/app/api/crm/leads/route.ts, [id]/route.ts, [id]/activities/route.ts.
 // All data access via sp_Lead_*/sp_LeadActivity_*.
 [ApiController]
+[RequirePlanFeature("CRM")]
 [Route("api/crm/leads")]
 public class LeadsController(SqlConnectionFactory connectionFactory, AuditService audit) : ControllerBase
 {

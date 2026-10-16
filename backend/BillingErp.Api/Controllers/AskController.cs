@@ -8,6 +8,7 @@ public record AskRequest(string? Question);
 
 // "Ask your data" — see AskService for the safety model (the model only picks a report intent).
 [ApiController]
+[RequirePlanFeature("AI_REPORTS")]
 [Route("api/ask")]
 [RequirePermission("REPORTS", "VIEW")]
 public class AskController(AskService ask) : ControllerBase

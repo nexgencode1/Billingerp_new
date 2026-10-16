@@ -158,7 +158,12 @@ public class SalesController(SqlConnectionFactory connectionFactory, AuditServic
         var session = HttpContext.GetSession()!;
         var outcome = await sales.CreateAsync(body, session.UserId);
         if (!outcome.Ok)
-            return outcome.ErrorStatus == 404 ? NotFound(new { error = outcome.Error }) : BadRequest(new { error = outcome.Error });
+            return outcome.ErrorStatus switch
+            {
+                404 => NotFound(new { error = outcome.Error }),
+                402 => StatusCode(402, new { error = outcome.Error, code = "PLAN_LIMIT" }),
+                _ => BadRequest(new { error = outcome.Error }),
+            };
 
         var saleId = outcome.SaleId!.Value;
         var invoiceNumber = outcome.InvoiceNumber!;

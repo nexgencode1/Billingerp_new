@@ -8,6 +8,8 @@ import { TourOverlay } from "@/components/tour/TourOverlay";
 import { TourAutoStart } from "@/components/tour/TourAutoStart";
 import { OfflineManager } from "@/components/offline/OfflineManager";
 import { PermissionsProvider } from "@/lib/permissions-context";
+import { PlanGate } from "@/components/subscription/PlanGate";
+import { TrialStarter } from "@/components/subscription/TrialStarter";
 import type { SessionPayload } from "@/types/auth";
 
 interface MeResponse {
@@ -22,17 +24,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <PermissionsProvider permissions={permissions}>
-    <div className="flex h-screen overflow-hidden">
+    {/* `relative` on the shell and <main> keeps absolutely-positioned descendants (e.g. sr-only
+        text) inside the scroll container; without it they escape overflow clipping, make the
+        document taller than the viewport, and leave a blank strip below the app when it scrolls. */}
+    <div className="relative flex h-dvh overflow-hidden">
       <Sidebar permissions={permissions} />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header session={session} />
-        <main className="print-area flex-1 overflow-y-auto bg-slate-50 p-4 pb-20 md:p-6 md:pb-6">{children}</main>
+        <main className="print-area relative flex-1 overflow-y-auto bg-slate-50 p-4 pb-20 md:p-6 md:pb-6">
+          <PlanGate>{children}</PlanGate>
+        </main>
       </div>
       <MobileNav permissions={permissions} />
       <ToastContainer />
       <TourOverlay />
       <TourAutoStart />
       <OfflineManager />
+      <TrialStarter />
     </div>
     </PermissionsProvider>
   );

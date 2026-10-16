@@ -12,6 +12,7 @@ namespace BillingErp.Api.Controllers;
 // The JSON follows the GSTR-1 offline-tool layout as understood when this was written; it must be
 // validated with the official offline tool before upload. // VERIFY: current schema
 [ApiController]
+[RequirePlanFeature("GST_RETURNS")]
 [Route("api/gst")]
 [RequirePermission("REPORTS", "VIEW")]
 public class GstReturnsController(SqlConnectionFactory connectionFactory, GstConfig gst) : ControllerBase

@@ -151,6 +151,33 @@ Other useful commands: `npm run lint`, `npx tsc --noEmit` (frontend); `dotnet bu
   never act as a staff session or vice versa. Every portal query is scoped by the token's
   customerId; other customers' invoice ids return 404. Staff manage access from the key icon on
   Customers (`/api/customers/{id}/portal`, CUSTOMERS EDIT).
+- **Software subscription** (`/settings/subscription`, `/api/subscription/*`, `Services/
+  SubscriptionService.cs` + `RazorpayService.cs`): Razorpay **Orders** + Checkout, one order per
+  billing period (this Razorpay account has no Subscriptions/Plans API — it returns 401). Paid-until
+  and the current plan are DERIVED from PAID `SubscriptionPayments` periods, which
+  `sp_SubscriptionPayment_MarkPaid` assigns contiguously under row locks (idempotent per order).
+  Only one prepaid future period is allowed (renew = same plan, switch = other plan from the period
+  end; no proration). Cancel: PERIOD_END (no refund, resumable) or IMMEDIATE (refunds unstarted
+  periods + the current one if paid within `Subscription:RefundWindowDays`). Keys live in
+  `dotnet user-secrets` (`Razorpay:KeyId/KeySecret/WebhookSecret`), never in appsettings. The webhook
+  (`/api/subscription/webhook`, public in `middleware.ts`, HMAC-verified) is optional; "Check status"
+  (`/orders/{id}/sync`) recovers payments locally. Gated by SETTINGS VIEW/EDIT.
+- **Plans & limits** (`Services/PlanAccessService.cs`): plan rows carry `Tier` (TRIAL/BASIC/PRO),
+  `InvoiceLimit` + `InvoiceLimitPeriod` (TOTAL/MONTH), `MaxUsers`, `LockedFeatures` (keys in
+  `PlanFeatures`, mirrored in `src/lib/plan-store.ts`). Free trial = one-time ₹0 PAID period with no end
+  date (`sp_Subscription_StartTrial`), 10 bills, all features; a paid plan replaces it immediately
+  (purpose UPGRADE). Enforced on the backend: `SaleService` (bill limit → 402), `UsersController.Create`
+  (user limit), `[RequirePlanFeature]` on CRM/HR/Manufacturing/GSTR/Portal/Recurring/Ask controllers.
+  **No active plan = no new bills and premium modules locked** (reading data still works), so a fresh
+  DB needs the trial started (landing "Free Trial" → `/dashboard?startTrial=1` → `TrialStarter`) before
+  `scripts/e2e_flow_test.py` can create sales. Bills are counted by `Sales.CreatedAt` (demo data counts).
+  UI: header `PlanBadge` (status light), `PlanGate` (locked-module screen), sidebar lock icons.
+- **Getting started guide** (dashboard, `GettingStarted.tsx` ← `GET /api/onboarding` ←
+  `sp_Onboarding_Status`): ordered setup steps ticked from real data (profile, plan, products, customer,
+  invoice, payment, team), filtered to what the role can do; hidden when all done or dismissed.
+- **Menu filter**: `filterNavGroups()` in `src/constants/nav.ts`, used by `Sidebar` and `MobileNav`.
+- **`serverApiGet` on 403/402** redirects to `/no-access` / `/settings/subscription` instead of
+  throwing (a cashier opening a supplier ledger by URL used to get a 500).
 - **Ask your business** (`/reports/ask`, `/api/ask`, `Services/AskService.cs`): the language model
   (local Ollama, optional — `Ai:*` in appsettings) only *classifies* the question into a fixed
   intent + period phrase; it never sees the DB or writes SQL. Numbers always come from the existing

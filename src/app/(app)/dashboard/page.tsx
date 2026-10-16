@@ -28,6 +28,7 @@ import {
 } from "recharts";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { BusinessInsights } from "@/components/dashboard/BusinessInsights";
+import { GettingStarted } from "@/components/dashboard/GettingStarted";
 import { Button } from "@/components/common/Button";
 import { Select } from "@/components/common/Select";
 import { Skeleton } from "@/components/common/Skeleton";
@@ -95,6 +96,8 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+
+      <GettingStarted />
 
       {loading || !data ? (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

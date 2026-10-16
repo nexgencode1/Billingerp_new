@@ -19,6 +19,9 @@ export async function middleware(req: NextRequest) {
   // Customer portal: its own cookie and its own login page. Portal API calls are authorised by
   // the backend ([RequirePortalSession]); staff sessions never grant portal pages and vice versa.
   if (pathname.startsWith("/api/portal")) return NextResponse.next();
+
+  // Razorpay server-to-server webhook: no cookie; the backend verifies its HMAC signature.
+  if (pathname === "/api/subscription/webhook") return NextResponse.next();
   if (pathname === "/portal/login") return NextResponse.next();
   if (pathname === "/portal" || pathname.startsWith("/portal/")) {
     const portalToken = req.cookies.get(PORTAL_COOKIE)?.value;

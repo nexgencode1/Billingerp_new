@@ -90,6 +90,9 @@ const WHY_US = [
   "Built-in Excel import and Excel/PDF export across products, parties, and every report.",
 ];
 
+// Free trial: log in (if needed), land on the dashboard, and start the trial there (TrialStarter).
+const TRIAL_HREF = `/login?next=${encodeURIComponent("/dashboard?startTrial=1")}`;
+
 function BrandMark({ className = "" }: { className?: string }) {
   return (
     <span className={`flex items-center gap-2 ${className}`}>
@@ -120,12 +123,20 @@ export default async function LandingPage() {
               Why us
             </a>
           </nav>
-          <Link
-            href="/login"
-            className="inline-flex h-9 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
-          >
-            Login
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/login?next=/dashboard"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              Login
+            </Link>
+            <Link
+              href={TRIAL_HREF}
+              className="inline-flex h-9 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
+            >
+              Free Trial
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -149,8 +160,14 @@ export default async function LandingPage() {
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Link
-                href="/login"
+                href={TRIAL_HREF}
                 className="inline-flex h-11 items-center justify-center rounded-md bg-blue-600 px-6 text-base font-medium text-white shadow-sm shadow-blue-200 transition-colors hover:bg-blue-700"
+              >
+                Start free trial — 10 bills free
+              </Link>
+              <Link
+                href="/login?next=/dashboard"
+                className="inline-flex h-11 items-center justify-center rounded-md border border-slate-300 px-6 text-base font-medium text-slate-700 transition-colors hover:bg-slate-50"
               >
                 Login to your account
               </Link>
@@ -288,14 +305,22 @@ export default async function LandingPage() {
         <div className="relative mx-auto flex max-w-4xl flex-col items-center gap-6 px-6 text-center">
           <h2 className="text-3xl font-bold text-white">Ready to get started?</h2>
           <p className="max-w-xl text-blue-100">
-            Log in with your account to access your dashboard, invoices, inventory, and reports.
+            Start a free trial with 10 bills and every feature unlocked, or log in to your dashboard.
           </p>
-          <Link
-            href="/login"
-            className="inline-flex h-11 items-center justify-center rounded-md bg-white px-6 text-base font-medium text-blue-700 shadow-sm transition-colors hover:bg-blue-50"
-          >
-            Login now
-          </Link>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Link
+              href={TRIAL_HREF}
+              className="inline-flex h-11 items-center justify-center rounded-md bg-white px-6 text-base font-medium text-blue-700 shadow-sm transition-colors hover:bg-blue-50"
+            >
+              Start free trial
+            </Link>
+            <Link
+              href="/login?next=/dashboard"
+              className="inline-flex h-11 items-center justify-center rounded-md border border-white/60 px-6 text-base font-medium text-white transition-colors hover:bg-white/10"
+            >
+              Login now
+            </Link>
+          </div>
         </div>
       </section>
 

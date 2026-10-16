@@ -10,10 +10,11 @@
 using System;
 using System.Reflection;
 
+[assembly: Microsoft.Extensions.Configuration.UserSecrets.UserSecretsIdAttribute("f68ef214-fcd8-4fa9-b389-8f52441cbee8")]
 [assembly: System.Reflection.AssemblyCompanyAttribute("BillingErp.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7e2ea4e8212dd5a6ea07695b989400405f852604")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+06577504eb56a6dac74ef3a5e76ff73e89793c02")]
 [assembly: System.Reflection.AssemblyProductAttribute("BillingErp.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BillingErp.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
